@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useRef, useEffect, useCallback, useTransition } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search, Filter } from 'lucide-react';
 import { CustomerSearchResult } from '@/types/customers';
 import CustomerCard from '@/components/customers/customer-card';
 import CustomerDetailPanel from '@/components/customers/customer-detail-panel';
 import AddCustomerModal from '@/components/customers/add-customer-modal';
 import FilterPopover from '@/components/customers/filter-popover';
-import { searchCustomers } from '@/actions/filter-customers';
-import { ExportButton } from '@/components/export-button'; // Import the ExportButton
+import { ExportButton } from '@/components/export-button';
 
 interface CustomerClientPageProps {
     initialCustomers: CustomerSearchResult[];
@@ -19,57 +18,42 @@ interface CustomerClientPageProps {
     };
 }
 
+// The search and address filters live in the URL (?search=…&address=…). The
+// server page reads them and renders the matching customers, so changing a
+// filter is just a navigation.
 const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomers, initialFilters }) => {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
 
-    const [customerSearchResults, setCustomerSearchResults] = useState<CustomerSearchResult[]>(initialCustomers);
+    const [searchInput, setSearchInput] = useState(initialFilters.searchTerm);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
     const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-
-    const currentSearchTerm = initialFilters.searchTerm;
-    const currentAddressFilter = initialFilters.address;
-
     const filterPopoverRef = useRef<HTMLDivElement>(null);
 
+    const currentAddressFilter = initialFilters.address;
 
-    const fetchCustomers = useCallback(async (filters: { searchTerm?: string; address?: string }) => {
-        setIsLoading(true);
-        const fetchedCustomers = await searchCustomers(filters);
-        setCustomerSearchResults(fetchedCustomers);
-        setIsLoading(false);
-    }, []);
-
-    const handleFilterChange = useCallback((newFilters: Partial<{ searchTerm: string; address: string }>) => {
+    const updateUrl = useCallback((changes: { search?: string; address?: string }) => {
         const params = new URLSearchParams(searchParams.toString());
-        let updatedSearchTerm = currentSearchTerm;
-        let updatedAddress = currentAddressFilter;
-
-        if (newFilters.searchTerm !== undefined) {
-            updatedSearchTerm = newFilters.searchTerm;
-            if (newFilters.searchTerm) {
-                params.set('searchTerm', newFilters.searchTerm);
-            } else {
-                params.delete('searchTerm');
-            }
+        for (const [key, value] of Object.entries(changes)) {
+            if (value) params.set(key, value);
+            else params.delete(key);
         }
-        if (newFilters.address !== undefined) {
-            updatedAddress = newFilters.address;
-            if (newFilters.address) {
-                params.set('address', newFilters.address);
-            } else {
-                params.delete('address');
-            }
-        }
-
-        fetchCustomers({
-            searchTerm: updatedSearchTerm,
-            address: updatedAddress,
+        const query = params.toString();
+        startTransition(() => {
+            router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
         });
-    }, [fetchCustomers, currentSearchTerm, currentAddressFilter, searchParams]);
-    
+    }, [router, pathname, searchParams]);
+
+    // Debounce typing so the server isn't queried on every keystroke.
+    useEffect(() => {
+        if (searchInput === initialFilters.searchTerm) return;
+        const timer = setTimeout(() => updateUrl({ search: searchInput.trim() }), 300);
+        return () => clearTimeout(timer);
+    }, [searchInput, initialFilters.searchTerm, updateUrl]);
+
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
@@ -78,13 +62,14 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [filterPopoverRef]);
-    
-    useEffect(() => {
-        setCustomerSearchResults(initialCustomers);
-    }, [initialCustomers]);
+    }, []);
 
-    const activeFilterCount = [currentSearchTerm, currentAddressFilter].filter(Boolean).length;
+    const handleModalClose = useCallback((added: boolean) => {
+        setIsModalOpen(false);
+        if (added) router.refresh();
+    }, [router]);
+
+    const activeFilterCount = [initialFilters.searchTerm, currentAddressFilter].filter(Boolean).length;
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -96,15 +81,17 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
                         <p className="mt-1 text-sm text-gray-600">Manage customer relationships and order history.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <ExportButton 
-                            source="customers" 
+                        <ExportButton
+                            source="customers"
                             columns={[
                                 { key: 'id', label: 'Customer ID' },
-                                { key: 'name', label: 'Name' },
-                                { key: 'address', label: 'Address' },
-                                { key: 'phone', label: 'Phone' },
+                                { key: 'customer_name', label: 'Name' },
+                                { key: 'company', label: 'Company' },
                                 { key: 'email', label: 'Email' },
-                            ]} 
+                                { key: 'mobile_number', label: 'Phone' },
+                                { key: 'address', label: 'Address' },
+                                { key: 'customer_type', label: 'Customer Type' },
+                            ]}
                         />
                         <button
                             onClick={() => setIsModalOpen(true)}
@@ -122,9 +109,9 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Search customers..."
-                            defaultValue={currentSearchTerm}
-                            onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
+                            placeholder="Search by name or email..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg"
                         />
                     </div>
@@ -141,8 +128,8 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
                         </button>
                         {isFilterPopoverOpen && (
                             <FilterPopover
-                                initialFilters={{ address: currentAddressFilter, minSpend: '', maxSpend: '' }}
-                                onApply={(filters) => handleFilterChange({ address: filters.address })}
+                                initialFilters={{ address: currentAddressFilter }}
+                                onApply={(filters) => updateUrl({ address: filters.address.trim() })}
                                 onClose={() => setIsFilterPopoverOpen(false)}
                             />
                         )}
@@ -152,18 +139,18 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
                 {/* --- Main Content Area --- */}
                 <div className="flex gap-6">
                     <div className={`transition-all duration-500 ease-in-out ${selectedCustomerId ? 'w-full lg:w-2/3' : 'w-full'}`}>
-                        {isLoading ? (
+                        {isPending ? (
                             <div className="text-center py-16 bg-white rounded-lg shadow-sm">
                                 <p className="text-gray-500 font-semibold">Loading customers...</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {customerSearchResults.map(customer => (
+                                {initialCustomers.map(customer => (
                                     <CustomerCard key={customer.id} customer={customer} onSelect={() => setSelectedCustomerId(customer.id)} />
                                 ))}
                             </div>
                         )}
-                        {customerSearchResults.length === 0 && !isLoading && (
+                        {initialCustomers.length === 0 && !isPending && (
                             <div className="text-center py-16 bg-white rounded-lg shadow-sm">
                                 <p className="text-gray-500 font-semibold">No customers found.</p>
                                 <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters.</p>
@@ -177,10 +164,8 @@ const CustomerClientPage: React.FC<CustomerClientPageProps> = ({ initialCustomer
                     )}
                 </div>
             </div>
-            <AddCustomerModal isOpen={isModalOpen} onClose={() => {
-                setIsModalOpen(false);
-                router.refresh();
-            }} />
+            {/* Mounted only while open, so every opening starts with a fresh form. */}
+            {isModalOpen && <AddCustomerModal onClose={handleModalClose} />}
         </div>
     );
 };

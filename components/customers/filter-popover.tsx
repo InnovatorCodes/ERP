@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 interface FilterPopoverProps {
     initialFilters: {
         address: string;
-        minSpend: string;
-        maxSpend: string;
     };
     onApply: (filters: FilterPopoverProps['initialFilters']) => void;
     onClose: () => void;
@@ -20,8 +18,8 @@ const FilterPopover: React.FC<FilterPopoverProps> = ({ initialFilters, onApply, 
     };
 
     const handleReset = () => {
-        setFilters({ address: '', minSpend: '', maxSpend: '' });
-        onApply({ address: '', minSpend: '', maxSpend: '' });
+        setFilters({ address: '' });
+        onApply({ address: '' });
         onClose();
     };
 
@@ -32,23 +30,9 @@ const FilterPopover: React.FC<FilterPopoverProps> = ({ initialFilters, onApply, 
                 <div className="space-y-4">
                     <input
                         type="text"
-                        placeholder="address"
+                        placeholder="Address or location"
                         value={filters.address}
                         onChange={e => setFilters(f => ({ ...f, address: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <input
-                        type="number"
-                        placeholder="Min. Total Spend"
-                        value={filters.minSpend}
-                        onChange={e => setFilters(f => ({ ...f, minSpend: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <input
-                        type="number"
-                        placeholder="Max. Total Spend"
-                        value={filters.maxSpend}
-                        onChange={e => setFilters(f => ({ ...f, maxSpend: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                 </div>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Customer } from '@/types/customers';
 import { getCustomerDetails } from '@/actions/get-customer-details';
-import { X, Mail, Phone, MapPin, DollarSign, ShoppingCart, Calendar, Clock } from 'lucide-react';
+import { X, Mail, Phone, MapPin, ShoppingCart, Calendar, Clock } from 'lucide-react';
 import Image from 'next/image';
 
 interface CustomerDetailPanelProps {
@@ -112,13 +112,10 @@ const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ customerId, o
                     </div>
                 </div>
 
-                {/* Financials */}
+                {/* Orders (no pricing is stored yet, so there is no spend figure) */}
                 <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Financials</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <DetailItem Icon={DollarSign} label="Total Spend" value={`$${(customer.totalSpend ?? 0).toLocaleString()}`} />
-                        <DetailItem Icon={ShoppingCart} label="Total Orders" value={customer.totalOrders} />
-                    </div>
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Orders</h4>
+                    <DetailItem Icon={ShoppingCart} label="Total Orders" value={customer.totalOrders ?? 0} />
                 </div>
 
                 {/* History */}
