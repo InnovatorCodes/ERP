@@ -1,13 +1,14 @@
 import { Stage, Priority } from './types';
 
+// Keys match public.stages.code and labels match public.stages.name.
 export const STAGE_CONFIG: Record<Stage | 'delivered', { label: string; color: string; }> = {
-  carpentry: { label: 'Carpentry', color: '#b91c1c' },       // Red-700
-  webbing: { label: 'Webbing', color: '#dc2626' },         // Red-600
-  marking_cutting: { label: 'Marking', color: '#ef4444' }, // Red-500
-  stitching: { label: 'Stitching', color: '#f87171' },     // Red-400
-  cladding: { label: 'Cladding', color: '#fca5a5' },       // Red-300
-  final_qc: { label: 'Final QC', color: '#fecaca' },         // Red-200
-  delivered: { label: 'Delivered', color: '#22c55e' },     // Green-500
+  carpentry: { label: 'Carpentry', color: '#b91c1c' },                 // Red-700
+  marking_cutting: { label: 'Marking and Cutting', color: '#dc2626' }, // Red-600
+  stitching: { label: 'Stitching', color: '#ef4444' },                 // Red-500
+  cladding: { label: 'Cladding', color: '#f87171' },                   // Red-400
+  final_qc: { label: 'Final QC', color: '#fca5a5' },                   // Red-300
+  packing_loading: { label: 'Packing and Loading', color: '#fecaca' }, // Red-200
+  delivered: { label: 'Delivered', color: '#22c55e' },                 // Green-500
 };
 
 export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; value: number }> = {

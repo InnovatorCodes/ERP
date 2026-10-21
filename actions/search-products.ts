@@ -1,8 +1,17 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES } from "@/lib/auth";
 import { Product } from "@/types/products";
 import { getSignedUrls } from "./get-signed-urls";
+
+// Only these columns may be filtered on from the client.
+const FILTERABLE_COLUMNS = new Set(['model_family_configuration', 'recliner_mechanism_mode']);
+
+function safeFilters(filters?: Record<string, string>): [string, string][] {
+  return Object.entries(filters ?? {}).filter(
+    ([key, value]) => FILTERABLE_COLUMNS.has(key) && typeof value === 'string' && value !== '' && value !== 'all'
+  );
+}
 
 export async function getProducts(
   productType: "sofa" | "bed",
@@ -11,7 +20,9 @@ export async function getProducts(
   pageSize: number = 10,
   query?: string
 ): Promise<{ products: Product[], totalCount: number }> {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) return { products: [], totalCount: 0 };
+  const supabase = auth.supabase;
   const tableName = productType === 'sofa' ? 'sofa_products' : 'bed_products';
 
   let queryBuilder = supabase.from(tableName).select('*', { count: 'exact' });
@@ -20,12 +31,8 @@ export async function getProducts(
     queryBuilder = queryBuilder.ilike('model_name', `%${query}%`);
   }
 
-  if (filters) {
-    for (const [key, value] of Object.entries(filters)) {
-      if (value && value !== 'all') {
-        queryBuilder = queryBuilder.eq(key, value);
-      }
-    }
+  for (const [key, value] of safeFilters(filters)) {
+    queryBuilder = queryBuilder.eq(key, value);
   }
 
   const { data: products, error, count } = await queryBuilder
@@ -67,22 +74,20 @@ export async function searchProducts(
   productType: "sofa" | "bed",
   filters?: Record<string, string>
 ): Promise<Product[]> {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) return [];
+  const supabase = auth.supabase;
   let queryBuilder = supabase.from(productType === 'sofa' ? 'sofa_products' : 'bed_products').select('*');
 
   if (query.trim()) {
     queryBuilder = queryBuilder.ilike('model_name', `%${query}%`);
   }
 
-  if (filters) {
-    for (const [key, value] of Object.entries(filters)) {
-      if (value && value !== 'all') {
-        queryBuilder = queryBuilder.eq(key, value);
-      }
-    }
+  for (const [key, value] of safeFilters(filters)) {
+    queryBuilder = queryBuilder.eq(key, value);
   }
 
-  const { data: products, error } = await queryBuilder;
+  const { data: products, error } = await queryBuilder.limit(50);
 
   if (error) {
     console.error("Error searching products:", error);

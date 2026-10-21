@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES, userFacingDbError } from '@/lib/auth';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';
 
@@ -106,12 +106,14 @@ interface FormState {
 }
 
 export async function submitOrder(prevState: FormState, formData: FormData) {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.SALES);
+  if (!auth.ok) return { success: false, message: auth.message };
+  const supabase = auth.supabase;
 
   // Basic validation using zfd
   const baseSchema = zfd.formData({
     selectedCustomerId: zfd.text(),
-    totalProducts: zfd.numeric().refine((n) => n >= 1, { message: "At least 1 product required" }),
+    totalProducts: zfd.numeric().refine((n) => Number.isInteger(n) && n >= 1 && n <= 50, { message: "Between 1 and 50 products required" }),
   });
 
   const parsedBase = baseSchema.safeParse(formData);
@@ -207,7 +209,8 @@ export async function submitOrder(prevState: FormState, formData: FormData) {
     });
 
     if (error) {
-      throw new Error(`Failed to submit order via RPC: ${error.message}`);
+      console.error('submit_full_order failed:', error);
+      return { success: false, message: userFacingDbError(error, 'Failed to place the order. Please check the product details.') };
     }
 
     revalidatePath(`/place-order`);

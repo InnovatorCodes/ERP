@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 // Helper to convert empty strings/invalid numbers to null
@@ -51,7 +51,9 @@ const uploadImage = async (file: File, subfolder: string, existingUrl: string | 
 };
 
 export async function updateProductAction(formData: FormData) {
-    const supabase = await createClient();
+    const auth = await authorize(ROLES.SALES);
+    if (!auth.ok) return { success: false, message: auth.message };
+    const supabase = auth.supabase;
 
     const productType = formData.get('product_type');
     const idValue = formData.get('id');
@@ -177,7 +179,6 @@ export async function updateProductAction(formData: FormData) {
             };
         }
 
-        console.log(updateData)
         const { error } = await supabase
             .from(tableName)
             .update(updateData)

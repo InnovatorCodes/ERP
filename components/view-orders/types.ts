@@ -1,5 +1,6 @@
 // --- TYPE DEFINITIONS ---
-export type Stage = 'carpentry' | 'webbing' | 'marking_cutting' | 'stitching' | 'cladding' | 'final_qc';
+// Must match public.stages.code in the database.
+export type Stage = 'carpentry' | 'marking_cutting' | 'stitching' | 'cladding' | 'final_qc' | 'packing_loading';
 export type Priority = 0 | 1 | 2 | 3;
 export type SortKey = 'dueDate' | 'priority' | 'id';
 export type View = 'list' | 'kanban';

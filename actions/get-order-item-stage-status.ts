@@ -1,12 +1,12 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { authorize, ROLES } from '@/lib/auth'
 
 export async function getOrderItemStageStatus(orderItemId: number) {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) return [];
 
-  // Call the optimized RPC function
-  const { data, error } = await supabase.rpc(
+  const { data, error } = await auth.supabase.rpc(
     'get_order_item_stage_status_with_delivery_check',
     {
       p_order_item_id: orderItemId,
@@ -18,6 +18,5 @@ export async function getOrderItemStageStatus(orderItemId: number) {
     return [];
   }
 
-  // The RPC function returns the data in the desired format
   return data;
 }

@@ -29,11 +29,11 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ data }) => {
 
   const statusColors: Record<string, string> = {
     carpentry: 'bg-yellow-100 text-yellow-800',
-    webbing: 'bg-blue-100 text-blue-800',
     marking_cutting: 'bg-indigo-100 text-indigo-800',
     stitching: 'bg-purple-100 text-purple-800',
     cladding: 'bg-pink-100 text-pink-800',
     final_qc: 'bg-green-100 text-green-800',
+    packing_loading: 'bg-blue-100 text-blue-800',
   };
 
   return (

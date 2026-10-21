@@ -1,27 +1,27 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES, userFacingDbError } from "@/lib/auth";
 
 export async function proceedToNextStage(
   orderItemId: number,
   currentStageId: number
 ): Promise<{ success: boolean; error: string | null }> {
-  const supabase = await  createClient();
+  const auth = await authorize(ROLES.PRODUCTION);
+  if (!auth.ok) return { success: false, error: auth.message };
 
-  console.log(orderItemId,currentStageId)
-  const { data, error } = await supabase.rpc('advance_order_stage ', {
+  const { data, error } = await auth.supabase.rpc('advance_order_stage', {
     p_current_stage_id: currentStageId,
     p_order_item_id: orderItemId,
   });
 
   if (error) {
     console.error('Error proceeding to next stage:', error);
-    return { success: false, error: 'Failed to proceed to the next stage.' };
+    return { success: false, error: userFacingDbError(error, 'Failed to proceed to the next stage.') };
   }
 
   if (data === false) {
-    return { success: false, error: 'Could not proceed because one or more checks are still pending.' };
+    return { success: false, error: 'Could not proceed because one or more checks are pending or failed.' };
   }
 
   revalidatePath('/view-orders');

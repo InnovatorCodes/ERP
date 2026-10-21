@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES } from "@/lib/auth";
 import { OrderHistory } from "@/components/order-history/types";
 
 export async function getOrderHistory(
@@ -9,7 +9,9 @@ export async function getOrderHistory(
   page: number,
   pageSize: number
 ): Promise<{ orders: OrderHistory[]; totalCount: number }> {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.MANAGEMENT);
+  if (!auth.ok) return { orders: [], totalCount: 0 };
+  const supabase = auth.supabase;
   const offset = (page - 1) * pageSize;
 
   const { data, error } = await supabase.rpc("search_and_paginate_order_history_v2", {

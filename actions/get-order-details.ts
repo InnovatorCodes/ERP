@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES } from "@/lib/auth";
 import { OrderDetails } from "@/components/order-history/types";
 
 function buildTimeline(orderDate: string, deliveryDate: string | null, status: string) {
@@ -13,7 +13,9 @@ function buildTimeline(orderDate: string, deliveryDate: string | null, status: s
 }
 
 export async function getOrderDetails(orderId: number): Promise<OrderDetails | null> {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.MANAGEMENT);
+  if (!auth.ok) return null;
+  const supabase = auth.supabase;
 
   const { data, error } = await supabase
     .from("order_items")

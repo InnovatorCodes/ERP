@@ -1,9 +1,11 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 
 export async function getChecklistForStage(orderItemId: number, stageId: number) {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) return [];
+  const supabase = auth.supabase;
 
   const { data, error } = await supabase
     .from('checks')

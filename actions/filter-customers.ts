@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import { CustomerSearchResult } from '@/types/customers';
 
 interface SearchFilters {
@@ -10,7 +10,9 @@ interface SearchFilters {
 }
 
 export async function searchCustomers(filters: SearchFilters): Promise<CustomerSearchResult[]> {
-    const supabase = await createClient();
+    const auth = await authorize(ROLES.STAFF);
+    if (!auth.ok) return [];
+    const supabase = auth.supabase;
 
     // Prepare parameters for the RPC call.
     // Use null for empty strings so the RPC function can handle them.

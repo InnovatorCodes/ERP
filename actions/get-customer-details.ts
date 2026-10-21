@@ -1,10 +1,12 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import { Customer } from '@/types/customers';
 
 export async function getCustomerDetails(customerId: string): Promise<Customer | null> {
-    const supabase = await createClient();
+    const auth = await authorize(ROLES.STAFF);
+    if (!auth.ok) return null;
+    const supabase = auth.supabase;
 
     const { data, error } = await supabase
         .rpc('get_customer_details', { p_customer_id: parseInt(customerId) });

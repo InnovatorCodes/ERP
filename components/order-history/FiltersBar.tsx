@@ -27,11 +27,11 @@ type FiltersBarProps = {
 const STATUSES = [
   "Delivered",
   "carpentry",
-  "webbing",
   "marking_cutting",
   "stitching",
   "cladding",
   "final_qc",
+  "packing_loading",
 ];
 
 export default function FiltersBar({ onApplyFilters, count }: FiltersBarProps) {

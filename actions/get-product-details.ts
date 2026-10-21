@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import { Product } from '@/types/products'; // Import Product type
 
 const formSchema = z.object({
@@ -10,7 +10,11 @@ const formSchema = z.object({
 });
 
 export default async function getProductDetails(id: number, type: 'sofa' | 'bed') {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) {
+    return { errors: { auth: [auth.message] } };
+  }
+  const supabase = auth.supabase;
 
   const validatedFields = formSchema.safeParse({
     id: id,

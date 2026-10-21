@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES, userFacingDbError } from "@/lib/auth";
 import { CheckItem } from "@/components/view-orders/types";
 
 export async function updateCheckStatus(
@@ -11,34 +11,23 @@ export async function updateCheckStatus(
   failure_report?: string
 ): Promise<{ success: boolean; error: string | null }> {
   try {
-    const supabase = await createClient();
+    const auth = await authorize(ROLES.PRODUCTION);
+    if (!auth.ok) return { success: false, error: auth.message };
 
-    const updateData: {
-      status: CheckItem["status"];
-      updated_at: string;
-      failure_report?: string;
-    } = {
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (newStatus === "failed" && failure_report) {
-      updateData.failure_report = failure_report;
-    }
-
-    const { error } = await supabase
-      .from("product_checklist_progress")
-      .update(updateData)
-      .eq("order_item_id", orderItemId)
-      .eq("check_id", checkId);
+    // set_check_status only accepts checks of a stage that is currently active.
+    const { error } = await auth.supabase.rpc("set_check_status", {
+      p_order_item_id: orderItemId,
+      p_check_id: checkId,
+      p_status: newStatus,
+      p_failure_report: failure_report ?? null,
+    });
 
     if (error) {
       console.error("Error updating check status:", error);
-      return { success: false, error: "Failed to update check status." };
+      return { success: false, error: userFacingDbError(error, "Failed to update check status.") };
     }
 
-    // Revalidate the path to ensure the UI updates with the new data
-    revalidatePath("/view-orders"); // Adjust the path as needed
+    revalidatePath("/view-orders");
 
     return { success: true, error: null };
   } catch (e) {

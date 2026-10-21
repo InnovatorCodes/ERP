@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import ExcelJS from 'exceljs';
 import { NextRequest, NextResponse } from 'next/server';
 import { Stream } from 'stream';
@@ -81,6 +82,11 @@ const getDataSourceConfig = (source: string | null) => {
 
 
 export async function GET(request: NextRequest) {
+  const auth = await authorize(ROLES.SALES);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   const { searchParams } = new URL(request.url);
   const source = 'customers';
   const format = searchParams.get('format') || 'csv'; // Default to CSV

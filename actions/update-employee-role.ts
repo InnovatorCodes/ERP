@@ -1,30 +1,31 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { z } from 'zod';
+import { authorize, ROLES, USER_ROLES, userFacingDbError } from '@/lib/auth';
+
+const inputSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(USER_ROLES as [string, ...string[]]),
+});
 
 export async function updateEmployeeRole(userId: string, role: string) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_SECRET_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-      },
-    }
-  );
+  const auth = await authorize(ROLES.ADMIN);
+  if (!auth.ok) return { success: false, message: auth.message };
 
-  const { error } = await supabase
+  const parsed = inputSchema.safeParse({ userId, role });
+  if (!parsed.success) {
+    return { success: false, message: 'Invalid employee or role.' };
+  }
+
+  // Runs as the signed-in admin: RLS and the last-admin trigger still apply.
+  const { error } = await auth.supabase
     .from("profiles")
-    .update({ role })
-    .eq("id", userId);
+    .update({ role: parsed.data.role })
+    .eq("id", parsed.data.userId);
 
   if (error) {
     console.error("Error updating employee role:", error);
-    return { success: false, message: error.message };
+    return { success: false, message: userFacingDbError(error, 'Failed to update the role.') };
   }
 
   return { success: true, message: "Employee role updated successfully." };

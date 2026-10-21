@@ -1,18 +1,21 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
+import { ilikeContains } from '@/lib/postgrest';
 
 export async function searchCustomers(query: string) {
     if (!query.trim()) {
         return [];
     }
 
-    const supabase = await createClient();
+    const auth = await authorize(ROLES.STAFF);
+    if (!auth.ok) return [];
 
-    const { data, error } = await supabase
+    const pattern = ilikeContains(query.trim());
+    const { data, error } = await auth.supabase
         .from('customer_details')
         .select('id, customer_name, company, email, address, mobile_number, customer_type, created_at')
-        .or(`customer_name.ilike.%${query}%,mobile_number.ilike.%${query}%,email.ilike.%${query}%,company.ilike.%${query}%`)
+        .or(['customer_name', 'mobile_number', 'email', 'company'].map((column) => `${column}.ilike.${pattern}`).join(','))
         .limit(10);
 
     if (error) {

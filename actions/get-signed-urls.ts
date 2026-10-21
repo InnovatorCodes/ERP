@@ -1,13 +1,17 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 
 export async function getSignedUrls(paths: string[]): Promise<{ [key: string]: string | null }> {
   if (!paths || paths.length === 0) {
     return {};
   }
 
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) {
+    return Object.fromEntries(paths.map((path) => [path, null]));
+  }
+  const supabase = auth.supabase;
   const thirtyMinutesInSeconds = 30 * 60;
 
   const { data, error } = await supabase.storage

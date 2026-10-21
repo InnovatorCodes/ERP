@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 
 // Helper to convert empty strings/invalid numbers to null
 const getNullIfEmpty = (value: FormDataEntryValue | null) => (value === '' || value === 'null' ? null : value);
@@ -21,7 +21,9 @@ const getNumberOrZero = (value: FormDataEntryValue | null) => {
 };
 
 export async function addProductAction(formData: FormData) {
-  const supabase = await createClient()
+  const auth = await authorize(ROLES.SALES);
+  if (!auth.ok) return { success: false, message: auth.message };
+  const supabase = auth.supabase;
 
   const productType = formData.get('product_type');
   const modelName = formData.get('model_name') as string;
@@ -32,10 +34,11 @@ export async function addProductAction(formData: FormData) {
     .from(tableName)
     .select('id')
     .eq('model_name', modelName)
-    .single();
+    .maybeSingle();
 
-  if (fetchError && fetchError.code !== 'PGRST116') { // Ignore 'No rows found' error
-    throw fetchError;
+  if (fetchError) {
+    console.error('Error checking model name:', fetchError);
+    return { success: false, message: 'Failed to add product.' };
   }
   if (existingProduct) {
     return { success: false, message: `A product with the model name "${modelName}" already exists.` };

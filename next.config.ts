@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+
+// Signed image URLs come from the project's own Supabase host.
+const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : undefined;
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -8,18 +14,9 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'i.pravatar.cc',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'gwcdqdhncpqbfmxiestj.supabase.co',
-        port: '',
-        pathname: '/**',
-      },
+      ...(supabaseHostname
+        ? [{ protocol: 'https', hostname: supabaseHostname, port: '', pathname: '/storage/v1/object/sign/**' }]
+        : []),
     ],
   },
   experimental: {

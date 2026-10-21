@@ -1,11 +1,12 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES } from "@/lib/auth";
 
 export async function getDashboardData() {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.MANAGEMENT);
+  if (!auth.ok) return null;
 
-  const { data, error } = await supabase.rpc("get_dashboard_stats");
+  const { data, error } = await auth.supabase.rpc("get_dashboard_stats");
 
   if (error) {
     console.error("Error fetching dashboard data:", error);

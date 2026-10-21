@@ -1,5 +1,5 @@
 import React from 'react';
-import { LucideIcon, Scissors, Hammer, Wrench, CheckCircle, Sofa } from 'lucide-react';
+import { LucideIcon, Scissors, Hammer, Package, CheckCircle, Sofa } from 'lucide-react';
 import { STAGE_CONFIG } from '@/components/view-orders/data';
 import { Stage } from '@/components/view-orders/types';
 
@@ -11,11 +11,11 @@ interface ProductionPipelineProps {
 
 const STAGE_ICONS: Record<Stage, LucideIcon> = {
   carpentry: Hammer,
-  webbing: Wrench,
   marking_cutting: Scissors,
   stitching: Sofa,
   cladding: Sofa,
   final_qc: CheckCircle,
+  packing_loading: Package,
 };
 
 // Create a reverse mapping from label to Stage key

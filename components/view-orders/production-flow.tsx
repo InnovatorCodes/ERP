@@ -84,7 +84,7 @@ const nodeTypes = {
 const initialNodes: Node<NodeData>[] = [
     { id: '1', type: 'custom', data: { label: 'Carpentry', status: 'pending' }, position: { x: 25, y: 5 } },
     { id: '2', type: 'custom', data: { label: 'Marking and Cutting', status: 'pending' }, position: { x: 25, y: 150 } },
-    { id: '3', type: 'custom', data: { label: 'Sewing', status: 'pending' }, position: { x: 250, y: 150 } },
+    { id: '3', type: 'custom', data: { label: 'Stitching', status: 'pending' }, position: { x: 250, y: 150 } },
     { id: '4', type: 'custom', data: { label: 'Cladding', status: 'pending' }, position: { x: 475, y: 75 } },
     { id: '5', type: 'custom', data: { label: 'Final QC', status: 'pending' }, position: { x: 700, y: 75 } },
     { id: '6', type: 'custom', data: { label: 'Packing and Loading', status: 'pending' }, position: { x: 925, y: 75 } },

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { authorize, ROLES } from "@/lib/auth";
 import { Order, Priority, Stage } from "@/components/view-orders/types";
 
 // The RPC response will have a 'total_count' property
@@ -27,7 +27,9 @@ export async function searchOrderItems(
   },
   sortConfig: { key: string; direction: string }
 ): Promise<{ orders: Order[]; totalCount: number }> {
-  const supabase = await createClient();
+  const auth = await authorize(ROLES.STAFF);
+  if (!auth.ok) return { orders: [], totalCount: 0 };
+  const supabase = auth.supabase;
   const offset = (page - 1) * limit;
 
   // Call the new, powerful database function with all necessary parameters

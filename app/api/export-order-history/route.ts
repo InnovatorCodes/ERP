@@ -1,9 +1,11 @@
 import ExcelJS from 'exceljs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { authorize, ROLES } from '@/lib/auth';
 import { Stream } from 'stream';
 
 const ITEMS_PER_PAGE = 100;
+const SORTABLE_COLUMNS = new Set(['due_date', 'delivery_date', 'id']);
 
 /**
  * Canonical keys we expose to CSV/XLSX (snake_case).
@@ -172,6 +174,11 @@ async function* getPaginatedOrderHistory(filters: Record<string, unknown>, sort:
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await authorize(ROLES.MANAGEMENT);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   const { searchParams } = new URL(request.url);
   const format = searchParams.get('format') || 'csv';
   const columns = searchParams.get('columns');
@@ -183,9 +190,10 @@ export async function GET(request: NextRequest) {
     date_from: searchParams.get('date_from') || undefined,
     date_to: searchParams.get('date_to') || undefined,
   };
+  const requestedSort = searchParams.get('sortBy') ?? '';
   const sort = {
-    by: searchParams.get('sortBy') || 'due_date',
-    dir: searchParams.get('sortDir') || 'desc',
+    by: SORTABLE_COLUMNS.has(requestedSort) ? requestedSort : 'due_date',
+    dir: searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc',
   };
 
   if (format === 'xlsx') {
