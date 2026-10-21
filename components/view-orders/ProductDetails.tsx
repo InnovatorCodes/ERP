@@ -13,6 +13,12 @@ interface ProductDetailsProps {
   productType: 'sofa' | 'bed';
   orderItemId: number;
   onProductUpdate: (updatedProduct: Product) => void;
+  /**
+   * Catalogue products are shared by every order of that model, so editing
+   * them from one order would silently change all the others. Edit products
+   * on the Products page; this view is read-only unless explicitly enabled.
+   */
+  editable?: boolean;
 }
 
 const formatLabel = (key: string) => {
@@ -22,7 +28,7 @@ const formatLabel = (key: string) => {
     .join(' ');
 };
 
-const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, onProductUpdate }) => {
+const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, onProductUpdate, editable = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedDetails, setEditedDetails] = useState(details);
   const [referenceImageFile, setReferenceImageFile] = useState<File | null>(null);
@@ -57,16 +63,17 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
     formData.append('product_type', productType);
 
     // Append image files and their current URLs (or 'null' if removed)
+    // Field names must match what updateProductAction reads.
     if (referenceImageFile) {
       formData.append('reference_image_file', referenceImageFile);
     } else {
-      formData.append('reference_image_url_from_form', editedDetails.reference_image_url || 'null');
+      formData.append('reference_image_file_from_form', editedDetails.reference_image_url || 'null');
     }
 
     if (measurementImageFile) {
       formData.append('measurement_image_file', measurementImageFile);
     } else {
-      formData.append('measurement_drawing_url_from_form', editedDetails.measurement_drawing_url || 'null');
+      formData.append('measurement_image_file_from_form', editedDetails.measurement_drawing_url || 'null');
     }
 
     try {
@@ -313,10 +320,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-lg">{productType} Details</h4>
-        <Button onClick={() => (isEditing ? handleCancel() : setIsEditing(true))} disabled={isLoading}>
-          {isLoading ? 'Loading...' : isEditing ? 'Cancel' : 'Edit'}
-        </Button>
+        <h4 className="font-semibold text-lg capitalize">{productType} Details</h4>
+        {editable && (
+          <Button onClick={() => (isEditing ? handleCancel() : setIsEditing(true))} disabled={isLoading}>
+            {isLoading ? 'Loading...' : isEditing ? 'Cancel' : 'Edit'}
+          </Button>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         {Object.entries(editedDetails).map(([key, value]) => (

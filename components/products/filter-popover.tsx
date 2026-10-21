@@ -48,7 +48,7 @@ export default function FilterPopover({ onFilterChange }: FilterPopoverProps) {
                   <SelectItem value="2 str">2 Str</SelectItem>
                   <SelectItem value="3 str">3 Str</SelectItem>
                   <SelectItem value="3+2 str">3+2 Str</SelectItem>
-                  <SelectItem value="3+ daybed">3+ Daybed</SelectItem>
+                  <SelectItem value="3+daybed">3+Daybed</SelectItem>
                   <SelectItem value="2+daybed">2+Daybed</SelectItem>
                   <SelectItem value="3+cnr+3">3+Cnr+3</SelectItem>
                   <SelectItem value="3+cnr+2">3+Cnr+2</SelectItem>

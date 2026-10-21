@@ -1,7 +1,8 @@
 // app/products/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { getProducts } from '@/actions/search-products';
 import { deleteProduct } from '@/actions/delete-product';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,17 +44,23 @@ export default function ProductsPage() {
     setViewedProduct(null);
   };
 
+  // Only the newest request may update the list, so slow responses can't
+  // overwrite the results of a later search.
+  const latestRequest = useRef(0);
+
   const fetchProducts = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     try {
       const { products, totalCount } = await getProducts(productType, filters, currentPage, pageSize, searchQuery);
+      if (requestId !== latestRequest.current) return;
       setDisplayedProducts(products);
       setTotalPages(Math.ceil(totalCount / pageSize));
     } catch (error) {
       console.error("Failed to fetch products:", error);
-      setDisplayedProducts([]);
+      if (requestId === latestRequest.current) setDisplayedProducts([]);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, [productType, filters, currentPage, searchQuery]);
 
@@ -68,20 +75,54 @@ export default function ProductsPage() {
 
   const handleFilterChange = (newFilters: Record<string, string>) => {
     setFilters(prevFilters => ({ ...prevFilters, ...newFilters }));
+    setCurrentPage(1);
+  };
+
+  // Filters are sofa-specific, so switching type starts from a clean slate.
+  const handleTypeChange = (type: 'sofa' | 'bed') => {
+    setProductType(type);
+    setFilters({});
+    setCurrentPage(1);
+    setViewedProduct(null);
   };
 
   const handleDelete = async (product: Product) => {
     const confirmation = confirm(`Are you sure you want to delete ${product.model_name}?`);
-    if (confirmation) {
-      try {
-        await deleteProduct(String(product.id), productType);
-        fetchProducts();
-      } catch (error) {
-        console.error("Failed to delete product:", error);
-        alert("Failed to delete product. Please try again.");
-      }
+    if (!confirmation) return;
+
+    const result = await deleteProduct(String(product.id), productType);
+    if (result.success) {
+      toast.success(result.message);
+      fetchProducts();
+    } else {
+      toast.error(result.message);
     }
   };
+
+  const exportColumns = productType === 'sofa'
+    ? [
+        { key: 'id', label: 'Product ID' },
+        { key: 'model_name', label: 'Model Name' },
+        { key: 'description', label: 'Description' },
+        { key: 'model_family_configuration', label: 'Configuration' },
+        { key: 'upholstery', label: 'Upholstery' },
+        { key: 'upholstery_color', label: 'Upholstery Color' },
+        { key: 'total_width', label: 'Width' },
+        { key: 'total_depth', label: 'Depth' },
+        { key: 'total_height', label: 'Height' },
+        { key: 'purchase_count', label: 'Times Ordered' },
+      ]
+    : [
+        { key: 'id', label: 'Product ID' },
+        { key: 'model_name', label: 'Model Name' },
+        { key: 'description', label: 'Description' },
+        { key: 'bed_size', label: 'Bed Size' },
+        { key: 'headboard_type', label: 'Headboard' },
+        { key: 'storage_option', label: 'Storage' },
+        { key: 'upholstery', label: 'Upholstery' },
+        { key: 'upholstery_color', label: 'Upholstery Color' },
+        { key: 'purchase_count', label: 'Times Ordered' },
+      ];
 
   return (
     <div className="flex h-full">
@@ -96,15 +137,10 @@ export default function ProductsPage() {
           />
           {productType === 'sofa' && <FilterPopover onFilterChange={handleFilterChange} />}
           <ExportButton
+            key={productType}
             source="products"
             productType={productType}
-            columns={[
-              { key: 'id', label: 'Product ID' },
-              { key: 'model_name', label: 'Model Name' },
-              { key: 'description', label: 'Description' },
-              { key: 'price', label: 'Price' },
-              { key: 'stock_quantity', label: 'Stock Quantity' },
-            ]}
+            columns={exportColumns}
           />
           <ProductHeaderActions />
         </div>
@@ -112,14 +148,14 @@ export default function ProductsPage() {
 
       {/* Toggle Buttons */}
       <div className="flex gap-2 mb-8">
-        <Button 
-          onClick={() => setProductType('sofa')}
+        <Button
+          onClick={() => handleTypeChange('sofa')}
           variant={productType === 'sofa' ? 'default' : 'outline'}
         >
           Sofas
         </Button>
-        <Button 
-          onClick={() => setProductType('bed')}
+        <Button
+          onClick={() => handleTypeChange('bed')}
           variant={productType === 'bed' ? 'default' : 'outline'}
         >
           Beds

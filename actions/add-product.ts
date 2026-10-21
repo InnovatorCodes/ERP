@@ -1,8 +1,9 @@
-// app/actions.ts
+// actions/add-product.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { authorize, ROLES } from '@/lib/auth';
+import { IMAGE_BUCKET, newImagePath, type ImageFolder } from '@/lib/storage';
 
 // Helper to convert empty strings/invalid numbers to null
 const getNullIfEmpty = (value: FormDataEntryValue | null) => (value === '' || value === 'null' ? null : value);
@@ -26,49 +27,31 @@ export async function addProductAction(formData: FormData) {
   const supabase = auth.supabase;
 
   const productType = formData.get('product_type');
-  const modelName = formData.get('model_name') as string;
+  const modelName = String(formData.get('model_name') ?? '').trim();
 
-  // Check if model name already exists
-  const tableName = productType === 'sofa' ? 'sofa_products' : 'bed_products';
-  const { data: existingProduct, error: fetchError } = await supabase
-    .from(tableName)
-    .select('id')
-    .eq('model_name', modelName)
-    .maybeSingle();
+  if (productType !== 'sofa' && productType !== 'bed') {
+    return { success: false, message: 'Invalid product type specified.' };
+  }
+  if (!modelName) {
+    return { success: false, message: 'Model name is required.' };
+  }
 
-  if (fetchError) {
-    console.error('Error checking model name:', fetchError);
-    return { success: false, message: 'Failed to add product.' };
-  }
-  if (existingProduct) {
-    return { success: false, message: `A product with the model name "${modelName}" already exists.` };
-  }
+  // Images uploaded in this request, removed again if the product isn't saved.
+  const uploaded: string[] = [];
+  const uploadImage = async (field: string, folder: ImageFolder) => {
+    const file = formData.get(field);
+    if (!(file instanceof File) || file.size === 0) return null;
+    const path = newImagePath(folder, file.name);
+    const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, { contentType: file.type });
+    if (error) throw new Error(`Failed to upload the ${folder} image: ${error.message}`);
+    uploaded.push(path);
+    return path;
+  };
 
   try {
-    const referenceImageFile = formData.get('reference_image_url') as File;
-    const measurementDrawingFile = formData.get('measurement_drawing_url') as File;
-    let referenceImageUrl = null;
-    let measurementDrawingUrl = null;
-
-    if (referenceImageFile && referenceImageFile.size > 0) {
-      const referenceFileName = `${Date.now()}-${referenceImageFile.name}`;
-      const referenceFilePath = `reference/${referenceFileName}`;
-      const { data: refData, error: refError } = await supabase.storage
-        .from('order-images')
-        .upload(referenceFilePath, referenceImageFile);
-      if (refError) throw new Error(`Failed to upload reference image: ${refError.message}`);
-      referenceImageUrl = refData.path;
-    }
-
-    if (measurementDrawingFile && measurementDrawingFile.size > 0) {
-      const measurementFileName = `${Date.now()}-${measurementDrawingFile.name}`;
-      const measurementFilePath = `measurement/${measurementFileName}`;
-      const { data: measData, error: measError } = await supabase.storage
-        .from('order-images')
-        .upload(measurementFilePath, measurementDrawingFile);
-      if (measError) throw new Error(`Failed to upload measurement drawing: ${measError.message}`);
-      measurementDrawingUrl = measData.path;
-    }
+    // The database's unique index on lower(model_name) also rejects duplicates.
+    const referenceImageUrl = await uploadImage('reference_image_url', 'reference');
+    const measurementDrawingUrl = await uploadImage('measurement_drawing_url', 'measurement');
 
     if (productType === 'sofa') {
       const sofaData = {
@@ -121,9 +104,9 @@ export async function addProductAction(formData: FormData) {
       const { error } = await supabase.from('sofa_products').insert([sofaData]);
       if (error) throw error;
 
-    } else if (productType === 'bed') {
+    } else {
       const bedData = {
-        model_name: formData.get('model_name'),
+        model_name: modelName,
         description: getNullIfEmpty(formData.get('description')),
         reference_image_url: referenceImageUrl,
         measurement_drawing_url: measurementDrawingUrl,
@@ -131,6 +114,10 @@ export async function addProductAction(formData: FormData) {
         customized_mattress_size: getNullIfEmpty(formData.get('customized_mattress_size')),
         headboard_type: getNullIfEmpty(formData.get('headboard_type')),
         storage_option: getNullIfEmpty(formData.get('storage_option')),
+        bed_portion: getNullIfEmpty(formData.get('bed_portion')),
+        total_width: getNumberOrNull(formData.get('total_width')),
+        total_depth: getNumberOrNull(formData.get('total_depth')),
+        total_height: getNumberOrNull(formData.get('total_height')),
         upholstery: getNullIfEmpty(formData.get('upholstery')),
         upholstery_color: getNullIfEmpty(formData.get('upholstery_color')),
         polish_color: getNullIfEmpty(formData.get('polish_color')),
@@ -140,20 +127,23 @@ export async function addProductAction(formData: FormData) {
 
       const { error } = await supabase.from('bed_products').insert([bedData]);
       if (error) throw error;
-
-    } else {
-        throw new Error('Invalid product type specified.');
     }
-    
+
     revalidatePath('/products');
     return { success: true, message: 'Product added successfully!' };
 
   } catch (error: unknown) {
     console.error('Error adding product:', error);
-    let message = 'Failed to add product';
-    if (error instanceof Error) {
-      message = `Failed to add product: ${error.message}`;
+    if (uploaded.length > 0) {
+      await supabase.storage.from(IMAGE_BUCKET).remove(uploaded);
     }
-    return { success: false, message };
+    const code = (error as { code?: string })?.code;
+    if (code === '23505') {
+      return { success: false, message: `A ${productType} with the model name "${modelName}" already exists.` };
+    }
+    if (code === '23514' || code === '23502') {
+      return { success: false, message: 'Some product details are missing or invalid.' };
+    }
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to add product.' };
   }
 }
