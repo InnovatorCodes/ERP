@@ -17,7 +17,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const getSessionAndProfile = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
 
       if (session?.user) {
@@ -48,7 +48,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         setSession(session);
-        getSessionAndProfile();
+        // Supabase can deadlock if its client is awaited inside this callback,
+        // so load the profile on the next tick instead.
+        setTimeout(getSessionAndProfile, 0);
     });
 
     return () => {
@@ -75,7 +77,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
 export const useUser = () => {
   const context = useContext(UserContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useUser must be used within a UserProvider.');
   }
   return context;

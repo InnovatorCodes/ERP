@@ -48,11 +48,11 @@ export default function AddEmployeeForm({
           role: 'production manager',
         });
         onSuccess?.();
+      } else {
+        toast.error(result.message || 'Failed to add employee');
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message || 'Failed to add employee');
-      }
+      toast.error(err instanceof Error && err.message ? err.message : 'Failed to add employee');
     } finally {
       setLoading(false);
     }
@@ -86,6 +86,7 @@ export default function AddEmployeeForm({
           type="password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          minLength={8}
           required
         />
       </div>

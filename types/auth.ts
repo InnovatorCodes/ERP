@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 
 export interface UserProfile extends User {
   full_name: string;
@@ -7,7 +7,7 @@ export interface UserProfile extends User {
 
 export interface UserContextType {
   user: UserProfile | null;
-  session: any;
+  session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }

@@ -6,16 +6,19 @@ import { useEffect, useState } from 'react';
 
 type Employee = Awaited<ReturnType<typeof getEmployees>>[0];
 
-export function EmployeesList() {
+/** Pass a new `refreshKey` to reload the list, e.g. after adding an employee. */
+export function EmployeesList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    async function fetchEmployees() {
-      const employees = await getEmployees();
-      setEmployees(employees);
-    }
-    fetchEmployees();
-  }, []);
+    let cancelled = false;
+    getEmployees().then((result) => {
+      if (!cancelled) setEmployees(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
 
   return (
     <div className="space-y-4">

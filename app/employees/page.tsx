@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 export default function AddEmployeePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [listVersion, setListVersion] = useState(0);
   return (
     <RoleGuard allowedRoles={['admin']}>
       <div className="p-4 space-y-8">
@@ -30,12 +31,13 @@ export default function AddEmployeePage() {
               <AddEmployeeForm
                 onSuccess={() => {
                   setIsModalOpen(false);
+                  setListVersion((version) => version + 1);
                 }}
               />
             </DialogContent>
           </Dialog>
         </div>
-        <EmployeesList />
+        <EmployeesList refreshKey={listVersion} />
       </div>
     </RoleGuard>
   );
