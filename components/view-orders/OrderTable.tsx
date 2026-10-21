@@ -1,33 +1,35 @@
 "use client";
-"use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Order } from './types';
 import { PRIORITY_CONFIG, STAGE_CONFIG } from './data';
 import { Button } from '../ui/button';
 import { markAsDelivered } from '@/actions/mark-as-delivered';
+import { formatDisplayDate, isOverdue } from '@/lib/utils';
 
 interface OrderTableProps {
   orders: Order[];
   onOrderSelect: (order: Order) => void;
+  onOrdersChanged: () => void;
 }
 
-const formatStageText = (stage: string) => {
-  if (stage === 'out_for_delivery') {
-    return 'Out for Delivery';
-  }
-  return stage;
-};
+const isKnownStage = (key: string): key is keyof typeof STAGE_CONFIG => key in STAGE_CONFIG;
 
-const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderSelect }) => {
+const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderSelect, onOrdersChanged }) => {
+  const [deliveringId, setDeliveringId] = useState<string | null>(null);
+
   const handleMarkAsDelivered = async (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await markAsDelivered(orderId);
-      // Optionally, refresh data or update UI state here
-    } catch (error) {
-      console.error("Failed to mark as delivered:", error);
-      // Handle error state in UI
+    setDeliveringId(orderId);
+    const result = await markAsDelivered(orderId);
+    setDeliveringId(null);
+
+    if (result.success) {
+      toast.success(`Order item ${orderId} marked as delivered.`);
+      onOrdersChanged();
+    } else {
+      toast.error(result.error ?? 'Failed to mark as delivered.');
     }
   };
 
@@ -45,7 +47,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderSelect }) => {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {orders.map(order => {
-            const isOverdue = new Date(order.dueDate) < new Date();
+            const overdue = order.stage !== 'delivered' && isOverdue(order.dueDate);
             return (
               <tr
                 key={order.id}
@@ -64,30 +66,24 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderSelect }) => {
                 <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-800">{order.product}</td>
                 <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-800">{order.productType}</td>
                 <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">{order.customer}</td>
-                <td className={`px-6 py-5 whitespace-nowrap text-sm ${isOverdue ? 'text-red-500 font-semibold' : 'text-gray-600'}`} suppressHydrationWarning>
-                  {new Date(order.dueDate).toLocaleDateString()}
+                <td className={`px-6 py-5 whitespace-nowrap text-sm ${overdue ? 'text-red-500 font-semibold' : 'text-gray-600'}`}>
+                  {formatDisplayDate(order.dueDate)}
                 </td>
                 <td className="px-6 py-5 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     {order.stage.split(',').map(stage => {
                       const stageKey = stage.trim();
-                      const isValidStage = (key: string): key is keyof typeof STAGE_CONFIG => key in STAGE_CONFIG;
-
-                      if (isValidStage(stageKey)) {
-                        const config = STAGE_CONFIG[stageKey];
-                        return (
-                          <span
-                            key={stageKey}
-                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full text-white"
-                            style={{ backgroundColor: config.color }}
-                          >
-                            {config.label}
-                          </span>
-                        );
-                      }
-                      return (
+                      return isKnownStage(stageKey) ? (
+                        <span
+                          key={stageKey}
+                          className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full text-white"
+                          style={{ backgroundColor: STAGE_CONFIG[stageKey].color }}
+                        >
+                          {STAGE_CONFIG[stageKey].label}
+                        </span>
+                      ) : (
                         <span key={stageKey} className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full text-white bg-gray-400">
-                          {formatStageText(stageKey)}
+                          {stageKey}
                         </span>
                       );
                     })}
@@ -95,8 +91,12 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderSelect }) => {
                 </td>
                 <td className="px-6 py-5 whitespace-nowrap">
                   {order.stage === 'out_for_delivery' && (
-                    <Button onClick={(e) => handleMarkAsDelivered(order.id, e)} size="sm">
-                      Mark as Delivered
+                    <Button
+                      onClick={(e) => handleMarkAsDelivered(order.id, e)}
+                      disabled={deliveringId === order.id}
+                      size="sm"
+                    >
+                      {deliveringId === order.id ? 'Saving...' : 'Mark as Delivered'}
                     </Button>
                   )}
                 </td>

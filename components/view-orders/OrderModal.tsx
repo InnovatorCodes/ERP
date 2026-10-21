@@ -12,6 +12,7 @@ import { getChecklistForStage } from "@/actions/get-checklist-for-stage";
 import { Checklist } from "./Checklist";
 import { Button } from "../ui/button";
 import { Node } from "@xyflow/react";
+import { formatDisplayDate, isOverdue } from "@/lib/utils";
 
 type NodeData = {
   label: string;
@@ -243,13 +244,13 @@ const OrderModal: React.FC<OrderModalProps> = ({
                               Due Date
                             </span>
                             <p
-                              className={`${
-                                new Date(order.dueDate) < new Date()
+                              className={
+                                order.stage !== "delivered" && isOverdue(order.dueDate)
                                   ? "text-red-600"
                                   : ""
-                              }`}
+                              }
                             >
-                              {new Date(order.dueDate).toLocaleDateString()}
+                              {formatDisplayDate(order.dueDate)}
                             </p>
                           </div>
                           <div>
@@ -266,9 +267,9 @@ const OrderModal: React.FC<OrderModalProps> = ({
                               }
                               className="w-full bg-gray-200 border border-gray-300 rounded-md p-2 focus:ring-red-500 focus:border-red-500"
                             >
-                              {Object.keys(PRIORITY_CONFIG).map((p) => (
+                              {(Object.keys(PRIORITY_CONFIG) as unknown as Priority[]).map((p) => (
                                 <option key={p} value={p}>
-                                  {p}
+                                  {PRIORITY_CONFIG[p].label}
                                 </option>
                               ))}
                             </select>

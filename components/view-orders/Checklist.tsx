@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   XCircle,
@@ -77,14 +78,18 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
     } else {
       setUpdatingCheckId(checkId);
       startTransition(async () => {
-        await updateCheckStatus(orderItemId, checkId, newStatus);
-        setChecklistItems(currentItems =>
-          currentItems.map(item =>
-            item.check_id === checkId
-              ? { ...item, status: newStatus, updated_at: new Date().toISOString() }
-              : item,
-          ),
-        );
+        const result = await updateCheckStatus(orderItemId, checkId, newStatus);
+        if (result.success) {
+          setChecklistItems(currentItems =>
+            currentItems.map(item =>
+              item.check_id === checkId
+                ? { ...item, status: newStatus, failure_report: undefined, updated_at: new Date().toISOString() }
+                : item,
+            ),
+          );
+        } else {
+          toast.error(result.error ?? 'Failed to update the check.');
+        }
         setUpdatingCheckId(null);
       });
     }
@@ -97,24 +102,28 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
     setFailPromptOpen(false);
 
     startTransition(async () => {
-      await updateCheckStatus(
+      const result = await updateCheckStatus(
         orderItemId,
         selectedCheck.check_id,
         'failed',
         failureReport,
       );
-      setChecklistItems(currentItems =>
-        currentItems.map(item =>
-          item.check_id === selectedCheck.check_id
-            ? {
-                ...item,
-                status: 'failed',
-                failure_report: failureReport,
-                updated_at: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
+      if (result.success) {
+        setChecklistItems(currentItems =>
+          currentItems.map(item =>
+            item.check_id === selectedCheck.check_id
+              ? {
+                  ...item,
+                  status: 'failed',
+                  failure_report: failureReport,
+                  updated_at: new Date().toISOString(),
+                }
+              : item,
+          ),
+        );
+      } else {
+        toast.error(result.error ?? 'Failed to save the failure report.');
+      }
       setUpdatingCheckId(null);
       setSelectedCheck(null);
       setFailureReport('');
@@ -213,12 +222,10 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
             startTransition(async () => {
               const result = await proceedToNextStage(orderItemId, stageId);
               if (result.success) {
-                // The onProceed prop is likely causing a re-render.
-                // For now, I will just switch the view back to the flow.
-                // A better solution would be to lift the state up.
-                onProceed(); // Assuming onProceed handles the view change
+                toast.success('Stage completed.');
+                onProceed();
               } else {
-                alert(result.error);
+                toast.error(result.error ?? 'Could not proceed to the next stage.');
               }
             });
           }}
