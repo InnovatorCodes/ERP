@@ -6,23 +6,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import Link from "next/link"
 
-export default function LoginForm() {
+export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setIsSubmitting(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       toast.error(error.message)
+      setIsSubmitting(false)
     } else {
-      toast.success("Logged in successfully!")
-      router.push("/dashboard")
+      // Middleware sends "/" to the home page for the user's role.
+      router.replace("/")
+      router.refresh()
     }
   }
 
@@ -35,6 +38,12 @@ export default function LoginForm() {
         <p className="mb-6 text-center text-sm text-gray-500">
           Please log in to continue
         </p>
+
+        {errorMessage && (
+          <p role="alert" className="mb-6 rounded-lg bg-red-50 p-3 text-center text-sm text-red-700">
+            {errorMessage}
+          </p>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
@@ -69,21 +78,16 @@ export default function LoginForm() {
 
           <Button
             type="submit"
+            disabled={isSubmitting}
             className="w-full rounded-lg bg-black text-white shadow-md transition hover:bg-gray-800 hover:shadow-lg"
           >
-            Login
+            {isSubmitting ? "Logging in..." : "Login"}
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          Don’t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-medium text-indigo-600 transition hover:text-indigo-800"
-          >
-            Sign up
-          </Link>
-        </div>
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Accounts are created by an admin.
+        </p>
       </div>
     </div>
   )

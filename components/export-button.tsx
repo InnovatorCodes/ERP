@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ExportModal } from "./export-modal";
+import { toast } from "sonner";
 
 interface ExportButtonProps {
   source: string;
@@ -22,7 +23,8 @@ export function ExportButton({ source, columns, productType }: ExportButtonProps
       }
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error('Failed to export data');
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? 'Failed to export data.');
       }
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -35,7 +37,7 @@ export function ExportButton({ source, columns, productType }: ExportButtonProps
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error("Export failed:", error);
-      // You might want to show a toast notification here
+      toast.error(error instanceof Error ? error.message : "Failed to export data.");
     } finally {
       setLoading(false);
     }

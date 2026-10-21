@@ -32,8 +32,8 @@ const RoleGuard = ({ allowedRoles, children }: RoleGuardProps) => {
       // Assuming the user object has a 'role' property
       const userRole = user?.role;
       if (!userRole || !allowedRoles.includes(userRole)) {
-        // If user does not have the required role, redirect to an unauthorized page or home
-        router.push('/unauthorized');
+        // Middleware sends "/" to the home page for the user's role.
+        router.push('/');
       }
     }
   }, [userContext, router, allowedRoles]);

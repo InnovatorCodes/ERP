@@ -1,19 +1,10 @@
 import { createClient } from '@/utils/supabase/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { ROLES, USER_ROLES, type UserRole } from '@/lib/roles';
 
-export type UserRole = 'admin' | 'manager' | 'production manager' | 'sales coordinator';
-
-export const USER_ROLES: readonly UserRole[] = ['admin', 'manager', 'production manager', 'sales coordinator'];
-
-// Who may call which server actions. The database enforces the same rules,
-// so these checks are a first line of defence, not the only one.
-export const ROLES = {
-  ADMIN: ['admin'],
-  MANAGEMENT: ['admin', 'manager'],
-  SALES: ['admin', 'manager', 'sales coordinator'],
-  PRODUCTION: ['admin', 'manager', 'production manager'],
-  STAFF: USER_ROLES,
-} as const satisfies Record<string, readonly UserRole[]>;
+// Who may call which server actions is defined in lib/roles.ts. The database
+// enforces the same rules, so these checks are a first line of defence.
+export { ROLES, USER_ROLES, type UserRole };
 
 type AuthResult =
   | { ok: true; supabase: SupabaseClient; user: User; role: UserRole }

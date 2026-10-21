@@ -1,96 +1,93 @@
 // middleware.ts
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { homePathFor, isUserRole, routeRolesFor } from '@/lib/roles'
 
-export async function middleware(req: NextRequest) {
-  // We are creating a response object that we can modify and return
-  const res = NextResponse.next()
+export async function middleware(request: NextRequest) {
+  // Supabase may refresh the session and write new cookies. They are written to
+  // this response, and copied onto any redirect we return, so a refreshed
+  // session is never lost.
+  let response = NextResponse.next({ request })
 
-  // Create the Supabase client with cookie handling configured for the middleware
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // The `get` and `set` methods are used here because we have direct
-        // access to the request and response objects.
-        get(name: string) {
-          return req.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
         },
-        set(name: string, value: string, options) {
-          // The middleware must update the cookies on both the request and response
-          // objects.
-          req.cookies.set({ name, value, ...options })
-          res.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options) {
-          req.cookies.set({ name, value: '', ...options })
-          res.cookies.set({ name, value: '', ...options })
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
     }
   )
 
-  // This is the most important step! It refreshes the session cookie.
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { pathname } = request.nextUrl
+  const isApi = pathname.startsWith('/api/')
+  const isLogin = pathname === '/login'
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const withSessionCookies = (res: NextResponse) => {
+    response.cookies.getAll().forEach((cookie) => res.cookies.set(cookie))
+    return res
+  }
+  const redirectTo = (path: string, search = '') => {
+    const url = request.nextUrl.clone()
+    url.pathname = path
+    url.search = search
+    return withSessionCookies(NextResponse.redirect(url))
+  }
+  const deny = (status: 401 | 403, error: string) =>
+    withSessionCookies(NextResponse.json({ error }, { status }))
 
-  const { pathname } = req.nextUrl;
+  // getUser() validates the session with Supabase Auth; don't trust the cookie alone.
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', req.url));
+  if (!user) {
+    if (isLogin) return response
+    return isApi ? deny(401, 'You must be signed in.') : redirectTo('/login')
   }
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  const role = isUserRole(profile?.role) ? profile.role : null
 
-    const userRole = profile?.role;
-
-    const rolePages: { [key: string]: string[] } = {
-      'production manager': ['/view-orders'],
-      'sales coordinator': ['/customers', '/products', '/place-order'],
-    };
-
-    const allowedPages = rolePages[userRole] || [];
-    let isPageAllowed = false;
-
-    if (pathname === '/employees') {
-      isPageAllowed = userRole === 'admin';
-    } else {
-      isPageAllowed =
-        userRole === 'admin' ||
-        userRole === 'manager' ||
-        allowedPages.some((page) => pathname.startsWith(page)) ||
-        pathname === '/' ||
-        pathname === '/login';
-    }
-
-    if (!isPageAllowed) {
-      const defaultPage = userRole === 'production manager' ? '/view-orders' : '/dashboard';
-      return NextResponse.redirect(new URL(defaultPage, req.url));
-    }
+  // Signed in but no role (e.g. created outside the Employees page): end the
+  // session instead of bouncing between pages.
+  if (!role) {
+    await supabase.auth.signOut()
+    if (isApi) return deny(403, 'Your account has no role assigned.')
+    return redirectTo('/login', '?error=no_access')
   }
 
-  return res;
+  if (isLogin || pathname === '/') {
+    return redirectTo(homePathFor(role))
+  }
+
+  const allowedRoles = routeRolesFor(pathname)
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return isApi
+      ? deny(403, 'You do not have permission to access this.')
+      : redirectTo(homePathFor(role))
+  }
+
+  return response
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all request paths except:
+     * - _next/static, _next/image (build output and image optimisation)
+     * - favicon.ico and static files in /public (images, fonts), so the
+     *   login page can load them before the user signs in
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|otf|ttf|woff|woff2)$).*)',
   ],
 }

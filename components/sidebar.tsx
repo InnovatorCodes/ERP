@@ -5,6 +5,7 @@ import { LayoutDashboard, Users, Package, ShoppingCart, ClipboardList, History, 
 import Link from 'next/link';
 import { useUser } from '@/context/user-context';
 import Image from 'next/image';
+import { canAccess, isUserRole } from '@/lib/roles';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -27,16 +28,18 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   };
 
   const menuItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: "/dashboard", roles: ['admin', 'manager'] },
-    { name: 'Customers', icon: Users, href: "/customers", roles: ['admin', 'manager', 'sales coordinator'] },
-    { name: 'Products', icon: Package, href: "/products", roles: ['admin', 'manager', 'sales coordinator'] },
-    { name: 'Place Order', icon: ShoppingCart, href: "/place-order", roles: ['admin', 'manager', 'sales coordinator'] },
-    { name: 'View Orders', icon: ClipboardList, href: "/view-orders", roles: ['admin', 'manager', 'production manager'] },
-    { name: 'Order History', icon: History, href: "/order-history", roles: ['admin', 'manager'] },
-    { name: 'Employees', icon: Users, href: "/employees", roles: ['admin'] },
+    { name: 'Dashboard', icon: LayoutDashboard, href: "/dashboard" },
+    { name: 'Customers', icon: Users, href: "/customers" },
+    { name: 'Products', icon: Package, href: "/products" },
+    { name: 'Place Order', icon: ShoppingCart, href: "/place-order" },
+    { name: 'View Orders', icon: ClipboardList, href: "/view-orders" },
+    { name: 'Order History', icon: History, href: "/order-history" },
+    { name: 'Employees', icon: Users, href: "/employees" },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => user?.role && item.roles.includes(user.role));
+  // Same access rules as the middleware (lib/roles.ts).
+  const role = isUserRole(user?.role) ? user.role : null;
+  const filteredMenuItems = menuItems.filter(item => canAccess(role, item.href));
 
   if (filteredMenuItems.length < 1) {
     return null;
