@@ -191,6 +191,12 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             <ExportButton
               source="orders"
+              params={{
+                q: search,
+                filters: JSON.stringify(activeFilters),
+                sortKey: sortConfig.key,
+                sortDir: sortConfig.direction,
+              }}
               columns={[
                 { key: 'priority', label: 'Priority' },
                 { key: 'order_id', label: 'Order ID' },

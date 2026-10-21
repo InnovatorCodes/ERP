@@ -9,19 +9,23 @@ interface ExportButtonProps {
   source: string;
   columns: { key: string; label: string }[];
   productType?: 'sofa' | 'bed';
+  /** The screen's current search/filters/sort, so the file matches what is shown. */
+  params?: Record<string, string | undefined>;
 }
 
-export function ExportButton({ source, columns, productType }: ExportButtonProps) {
+export function ExportButton({ source, columns, productType, params }: ExportButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handleExport = async (selectedColumns: string[], format: "csv" | "xlsx") => {
     setLoading(true);
     try {
-      let url = `/api/export-${source}?format=${format}&columns=${selectedColumns.join(',')}`;
-      if (productType) {
-        url += `&productType=${productType}`;
+      const query = new URLSearchParams({ format, columns: selectedColumns.join(',') });
+      if (productType) query.set('productType', productType);
+      for (const [key, value] of Object.entries(params ?? {})) {
+        if (value) query.set(key, value);
       }
-      const response = await fetch(url);
+
+      const response = await fetch(`/api/export-${source}?${query}`);
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? 'Failed to export data.');

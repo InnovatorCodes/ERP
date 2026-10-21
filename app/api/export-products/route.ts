@@ -1,54 +1,39 @@
-import { createClient } from '@/utils/supabase/server';
-import { authorize, ROLES } from '@/lib/auth';
-import ExcelJS from 'exceljs';
 import { NextRequest, NextResponse } from 'next/server';
-import { Stream } from 'stream';
+import { authorize, ROLES } from '@/lib/auth';
+import { collectRows, exportFailed, exportResponse, selectColumns, type ExportColumn } from '@/lib/export';
 
-interface Product {
-  [key: string]: string | number | boolean | null;
-}
+const SHARED_COLUMNS: ExportColumn[] = [
+  { key: 'id', label: 'Product ID' },
+  { key: 'model_name', label: 'Model Name' },
+  { key: 'description', label: 'Description' },
+];
 
-// This function converts a chunk of data (array of objects) into a CSV string.
-// It can optionally include a header row.
-const convertChunkToCSV = (data: Product[], headers: string[], includeHeader: boolean): string => {
-  if (!data || data.length === 0) {
-    return "";
-  }
-
-  const csvRows = [];
-
-  if (includeHeader) {
-    csvRows.push(headers.join(','));
-  }
-
-  for (const row of data) {
-    const values = headers.map(header => {
-      const val = row[header] === null || row[header] === undefined ? '' : row[header];
-      const escaped = ('' + val).replace(/"/g, '""'); // Escape double quotes
-      return `"${escaped}"`;
-    });
-    csvRows.push(values.join(','));
-  }
-
-  return csvRows.join('\n') + '\n'; // Add newline at the end of chunk
+const COLUMNS: Record<'sofa' | 'bed', ExportColumn[]> = {
+  sofa: [
+    ...SHARED_COLUMNS,
+    { key: 'model_family_configuration', label: 'Configuration' },
+    { key: 'upholstery', label: 'Upholstery' },
+    { key: 'upholstery_color', label: 'Upholstery Color' },
+    { key: 'total_width', label: 'Width' },
+    { key: 'total_depth', label: 'Depth' },
+    { key: 'total_height', label: 'Height' },
+    { key: 'customization', label: 'Customised' },
+    { key: 'purchase_count', label: 'Times Ordered' },
+  ],
+  bed: [
+    ...SHARED_COLUMNS,
+    { key: 'bed_size', label: 'Bed Size' },
+    { key: 'headboard_type', label: 'Headboard' },
+    { key: 'storage_option', label: 'Storage' },
+    { key: 'upholstery', label: 'Upholstery' },
+    { key: 'upholstery_color', label: 'Upholstery Color' },
+    { key: 'total_width', label: 'Width' },
+    { key: 'total_depth', label: 'Depth' },
+    { key: 'total_height', label: 'Height' },
+    { key: 'customization', label: 'Customised' },
+    { key: 'purchase_count', label: 'Times Ordered' },
+  ],
 };
-
-// This function defines the query and data mapping for a specific data source.
-// This helps keep the streaming logic clean.
-const getDataSourceConfig = (source: string | null, productType: string | null) => {
-    switch (source) {
-        case 'products':
-            const tableName = productType === 'sofa' ? 'sofa_products' : 'bed_products';
-            return {
-                query: '*',
-                mapper: (product: Product) => product, // No mapping needed
-                tableName: tableName
-            };
-        default:
-            return null;
-    }
-}
-
 
 export async function GET(request: NextRequest) {
   const auth = await authorize(ROLES.SALES);
@@ -56,182 +41,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
 
-  const { searchParams } = new URL(request.url);
-  const source = 'products';
-  const productType = searchParams.get('productType');
-  const format = searchParams.get('format') || 'csv'; // Default to CSV
-  const columns = searchParams.get('columns');
-  const selectedColumns = columns ? columns.split(',') : null;
+  const { searchParams } = request.nextUrl;
+  const productType = searchParams.get('productType') === 'bed' ? 'bed' : 'sofa';
+  const columns = selectColumns(searchParams.get('columns'), COLUMNS[productType]);
+  const tableName = productType === 'sofa' ? 'sofa_products' : 'bed_products';
 
-  const config = getDataSourceConfig(source, productType);
-  if (!config) {
-    return new NextResponse(JSON.stringify({ error: 'Invalid data source specified' }), { status: 400 });
-  }
+  try {
+    const rows = await collectRows(async (offset, limit) => {
+      const { data, error } = await auth.supabase
+        .from(tableName)
+        .select('*')
+        .order('id')
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      return data.map((product) => ({ ...product, customization: product.customization ? 'Yes' : 'No' }));
+    }, 1000);
 
-  const supabase = await createClient();
-
-  if (format === 'xlsx') {
-    const fileName = `${source}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-    const headers = new Headers();
-    headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
-
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-
-    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
-      stream: new class extends Stream.Writable {
-        _write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
-          writer.write(chunk);
-          callback();
-        }
-        _final(callback: (error?: Error | null) => void) {
-          writer.close();
-          callback();
-        }
-      }(),
+    return await exportResponse({
+      format: searchParams.get('format'),
+      baseName: `${productType}_products`,
+      sheetName: productType === 'sofa' ? 'Sofas' : 'Beds',
+      columns,
+      rows,
     });
-
-    const worksheet = workbook.addWorksheet(source || 'Sheet 1');
-
-    (async () => {
-      const pageSize = 1000;
-      let page = 0;
-
-      try {
-        // Fetch the first chunk to determine column widths
-        const { data: firstChunk, error: firstChunkError } = await supabase
-          .from(config.tableName)
-          .select(config.query)
-          .range(0, pageSize - 1);
-
-        if (firstChunkError) {
-          throw firstChunkError;
-        }
-
-        if (firstChunk && firstChunk.length > 0) {
-          let mappedFirstChunk = (firstChunk as unknown as Product[]).map(config.mapper);
-          if (selectedColumns) {
-            mappedFirstChunk = mappedFirstChunk.map(row => {
-              const newRow: Product = {};
-              selectedColumns.forEach(col => {
-                newRow[col] = row[col];
-              });
-              return newRow;
-            });
-          }
-          const keys = selectedColumns || Object.keys(mappedFirstChunk[0]);
-
-          // Calculate column widths from headers and the first chunk of data
-          const columnWidths = keys.reduce((widths, key) => {
-            const headerText = key.replace(/_/g, ' ').toUpperCase();
-            let maxLength = headerText.length;
-            
-            for (const row of mappedFirstChunk) {
-              const cellValue = row[key] ? row[key].toString() : '';
-              if (cellValue.length > maxLength) {
-                maxLength = cellValue.length;
-              }
-            }
-            
-            widths[key] = maxLength + 2; // +2 for padding
-            return widths;
-          }, {} as Record<string, number>);
-
-          worksheet.columns = keys.map(key => ({
-            header: key.replace(/_/g, ' ').toUpperCase(),
-            key: key,
-            width: columnWidths[key]
-          }));
-
-          // Add the first chunk of rows
-          mappedFirstChunk.forEach(row => {
-            worksheet.addRow(row).commit();
-          });
-
-          page = 1; // Start fetching from the second page
-        }
-
-        // Fetch and stream remaining chunks
-        while (true) {
-          const from = page * pageSize;
-          const to = from + pageSize - 1;
-
-          const { data: chunk, error } = await supabase.from(config.tableName).select(config.query).range(from, to);
-          if (error) { throw error; }
-          if (!chunk || chunk.length === 0) { break; }
-
-          let mappedChunk = (chunk as unknown as Product[]).map(config.mapper);
-          if (selectedColumns) {
-            mappedChunk = mappedChunk.map(row => {
-              const newRow: Product = {};
-              selectedColumns.forEach(col => {
-                newRow[col] = row[col];
-              });
-              return newRow;
-            });
-          }
-          mappedChunk.forEach(row => {
-            worksheet.addRow(row).commit();
-          });
-
-          page++;
-        }
-
-        await worksheet.commit();
-        await workbook.commit();
-        writer.close();
-      } catch(err) {
-        console.error("XLSX Streaming Error:", err);
-        writer.abort(err);
-      }
-    })();
-
-    return new NextResponse(readable, { headers });
-
-  } else { // Default to CSV
-    const fileName = `${source}_export_${new Date().toISOString().split('T')[0]}.csv`;
-    const headers = new Headers();
-    headers.set('Content-Type', 'text/csv; charset=utf-8');
-    headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
-
-    const stream = new ReadableStream({
-        async start(controller) {
-            const pageSize = 1000;
-            let page = 0;
-            let isFirstChunk = true;
-            try {
-                while (true) {
-                    const from = page * pageSize;
-                    const to = from + pageSize - 1;
-                    const { data: chunk, error } = await supabase.from(config.tableName).select(config.query).range(from, to);
-                    if (error) { throw error; }
-                    if (!chunk || chunk.length === 0) { controller.close(); return; }
-
-                    let mappedChunk = (chunk as unknown as Product[]).map(config.mapper);
-                    if (selectedColumns) {
-                        mappedChunk = mappedChunk.map(row => {
-                            const newRow: Product = {};
-                            selectedColumns.forEach(col => {
-                                newRow[col] = row[col];
-                            });
-                            return newRow;
-                        });
-                    }
-                    if (mappedChunk.length > 0) {
-                        const columnHeaders = selectedColumns || Object.keys(mappedChunk[0]);
-                        const csvChunk = convertChunkToCSV(mappedChunk, columnHeaders, isFirstChunk);
-                        controller.enqueue(new TextEncoder().encode(csvChunk));
-                        if (isFirstChunk) isFirstChunk = false;
-                    }
-                    page++;
-                }
-            } catch (err) {
-                console.error('CSV Streaming error:', err);
-                controller.error(err);
-            }
-        }
-    });
-    return new NextResponse(stream, { headers });
+  } catch (error) {
+    return exportFailed(error);
   }
 }

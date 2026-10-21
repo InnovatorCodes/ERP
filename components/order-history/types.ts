@@ -12,13 +12,10 @@ export type OrderHistory = {
 export type OrderDetails = OrderHistory & {
   deliveryDate: string | null;
   shippingAddress: string;
-  billingAddress: string;
   items: {
     name: string;
     sku: string;
     quantity: number;
-    price: number;
-    lineTotal: number;
   }[];
   timeline: {
     key: string;

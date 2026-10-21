@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { OrderHistory, OrderDetails } from "./types";
-import FiltersBar from "./FiltersBar";
+import FiltersBar, { type Filters } from "./FiltersBar";
 import OrderTable from "./OrderTable";
 import Pagination from "./Pagination";
 import OrderDetailsDrawer from "./OrderDetailsDrawer";
@@ -10,88 +11,97 @@ import KPI from "./KPI";
 import { getOrderDetails } from "@/actions/get-order-details";
 import { getOrderHistory } from "@/actions/get-order-history";
 
-const debounce = <F extends (...args: Parameters<F>) => ReturnType<F>>(func: F, delay: number) => {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<F>): void => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      func(...args);
-    }, delay);
-  };
-};
+type Sort = { by: string; dir: string };
 
 type OrderHistoryClientProps = {
   initialOrders: OrderHistory[];
   initialTotalCount: number;
 };
 
+const PAGE_SIZE = 12;
+
 export default function OrderHistoryClient({ initialOrders, initialTotalCount }: OrderHistoryClientProps) {
   const [orders, setOrders] = useState(initialOrders);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
-  const [filters, setFilters] = useState<{ q: string; status: string; date_from?: string; date_to?: string }>({ q: "", status: "" });
-  const [sort, setSort] = useState({ by: "dueDate", dir: "desc" });
+  const [filters, setFilters] = useState<Filters>({ q: "", status: "" });
+  const [sort, setSort] = useState<Sort>({ by: "dueDate", dir: "desc" });
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const pageSize = 12;
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const isInitialRender = useRef(true);
 
-  const fetchOrders = useCallback(async (currentFilters: typeof filters, currentSort: typeof sort, currentPage: number) => {
-    setIsLoading(true);
-    const { orders: newOrders, totalCount: newTotalCount } = await getOrderHistory(
-      currentFilters,
-      currentSort,
-      currentPage,
-      pageSize
-    );
-    setOrders(newOrders);
-    setTotalCount(newTotalCount);
-    setIsLoading(false);
-  }, [pageSize]);
-
-  const debouncedFetch = useMemo(() => debounce(fetchOrders, 300), [fetchOrders]);
+  // New filters or sort always start again from the first page.
+  const applyFilters = useCallback((next: Filters) => {
+    setFilters(next);
+    setPage(1);
+  }, []);
+  const changeSort: React.Dispatch<React.SetStateAction<Sort>> = useCallback((next) => {
+    setSort(next);
+    setPage(1);
+  }, []);
 
   useEffect(() => {
-    if (filters.q) {
-      debouncedFetch(filters, sort, page);
-    } else {
-      fetchOrders(filters, sort, page);
+    // The server already rendered the first page.
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
     }
-  }, [filters, sort, page, debouncedFetch, fetchOrders]);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    let cancelled = false;
+    // Debounce typing in the search box; other changes load immediately.
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      const result = await getOrderHistory(filters, sort, page, PAGE_SIZE);
+      if (cancelled) return;
+      setOrders(result.orders);
+      setTotalCount(result.totalCount);
+      setIsLoading(false);
+    }, filters.q ? 300 : 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [filters, sort, page]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const handleViewOrder = async (order: OrderHistory) => {
+    setIsLoadingDetails(true);
     const details = await getOrderDetails(order.id);
-    setSelectedOrder(details);
+    setIsLoadingDetails(false);
+    if (details) {
+      setSelectedOrder(details);
+    } else {
+      toast.error("Could not load the order details.");
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <KPI title="Total Orders" value={totalCount} />
-        <KPI
-          title="Completed Orders"
-          value={orders.filter((r) => r.status === "Delivered").length}
-        />
-        <KPI
-          title="Pending Orders"
-          value={orders.filter((r) => r.status !== "Delivered").length}
-        />
+        <KPI title="Delivered Orders" value={totalCount} />
       </div>
 
       <FiltersBar
-        onApplyFilters={setFilters}
+        onApplyFilters={applyFilters}
         count={totalCount}
+        exportParams={{
+          q: filters.q,
+          date_from: filters.date_from,
+          date_to: filters.date_to,
+          sortBy: sort.by,
+          sortDir: sort.dir,
+        }}
       />
 
       <OrderTable
         orders={orders}
         sort={sort}
-        setSort={setSort}
+        setSort={changeSort}
         onViewOrder={handleViewOrder}
-        isLoading={isLoading} // Pass isLoading to OrderTable
+        isLoading={isLoading || isLoadingDetails}
       />
 
       <Pagination page={page} totalPages={totalPages} setPage={setPage} />
@@ -99,7 +109,6 @@ export default function OrderHistoryClient({ initialOrders, initialTotalCount }:
       <OrderDetailsDrawer
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        isLoading={isLoading} // Pass isLoading to OrderDetailsDrawer
       />
     </div>
   );

@@ -1,7 +1,20 @@
 "use server";
 
 import { authorize, ROLES } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/utils";
 import { OrderHistory } from "@/components/order-history/types";
+
+type HistoryRow = {
+  id: number;
+  due_date: string;
+  delivery_date: string | null;
+  production_stage: string;
+  product_type: string;
+  model_name: string | null;
+  order_date: string;
+  customer_name: string | null;
+  total_count: number;
+};
 
 export async function getOrderHistory(
   filters: { q: string; status: string; date_from?: string; date_to?: string },
@@ -11,10 +24,9 @@ export async function getOrderHistory(
 ): Promise<{ orders: OrderHistory[]; totalCount: number }> {
   const auth = await authorize(ROLES.MANAGEMENT);
   if (!auth.ok) return { orders: [], totalCount: 0 };
-  const supabase = auth.supabase;
   const offset = (page - 1) * pageSize;
 
-  const { data, error } = await supabase.rpc("search_and_paginate_order_history_v2", {
+  const { data, error } = await auth.supabase.rpc("search_and_paginate_order_history_v2", {
     p_search_term: filters.q,
     p_limit: pageSize,
     p_offset: offset,
@@ -26,23 +38,23 @@ export async function getOrderHistory(
     console.error("Error fetching order history:", error);
     return { orders: [], totalCount: 0 };
   }
-  
-  if (!data || data.length === 0) {
+
+  const rows = (data ?? []) as HistoryRow[];
+  if (rows.length === 0) {
     return { orders: [], totalCount: 0 };
   }
 
-  const totalCount = data[0]?.total_count || 0;
-
-  const orders: OrderHistory[] = data.map((item: any) => ({
+  // Due and delivery dates are calendar dates sent as midnight UTC timestamps.
+  const orders: OrderHistory[] = rows.map((item) => ({
     id: item.id,
-    customerName: item.customer_name,
-    orderDate: new Date(item.order_date).toLocaleDateString(),
-    dueDate: new Date(item.due_date).toLocaleDateString(),
-    deliveryDate: item.delivery_date ? new Date(item.delivery_date).toLocaleDateString() : null,
+    customerName: item.customer_name ?? "",
+    orderDate: formatDisplayDate(item.order_date),
+    dueDate: formatDisplayDate(item.due_date.slice(0, 10)),
+    deliveryDate: item.delivery_date ? formatDisplayDate(item.delivery_date.slice(0, 10)) : null,
     status: item.delivery_date ? "Delivered" : item.production_stage,
-    productName: item.model_name,
+    productName: item.model_name ?? "",
     productType: item.product_type === "sofa" ? "Sofa" : "Bed",
   }));
 
-  return { orders, totalCount };
+  return { orders, totalCount: Number(rows[0].total_count) };
 }

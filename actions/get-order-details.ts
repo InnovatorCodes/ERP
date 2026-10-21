@@ -1,30 +1,36 @@
 "use server";
 
 import { authorize, ROLES } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/utils";
 import { OrderDetails } from "@/components/order-history/types";
 
-function buildTimeline(orderDate: string, deliveryDate: string | null, status: string) {
-    const steps = [{ key: "placed", label: "Order Placed", date: new Date(orderDate).toLocaleDateString() }];
-
-    if (deliveryDate) {
-        steps.push({ key: "delivered", label: "Delivered", date: new Date(deliveryDate).toLocaleDateString() });
-    }
-    return steps;
-}
+type OrderItemRow = {
+  id: number;
+  due_date: string;
+  delivery_date: string | null;
+  product_type: "sofa" | "bed";
+  quantity: number;
+  sofa_product_id: number | null;
+  bed_product_id: number | null;
+  sofa_products: { model_name: string } | null;
+  bed_products: { model_name: string } | null;
+  orders: {
+    order_date: string;
+    customer_details: { customer_name: string; address: string } | null;
+  } | null;
+};
 
 export async function getOrderDetails(orderId: number): Promise<OrderDetails | null> {
   const auth = await authorize(ROLES.MANAGEMENT);
   if (!auth.ok) return null;
-  const supabase = auth.supabase;
 
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("order_items")
     .select(
       `
       id,
       due_date,
       delivery_date,
-      production_stage,
       product_type,
       quantity,
       sofa_product_id,
@@ -43,45 +49,38 @@ export async function getOrderDetails(orderId: number): Promise<OrderDetails | n
     .eq("id", orderId)
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("Error fetching order details:", error);
     return null;
   }
 
-  const item = data;
+  const item = data as unknown as OrderItemRow;
+  const isSofa = item.product_type === "sofa";
+  const productName = (isSofa ? item.sofa_products?.model_name : item.bed_products?.model_name) ?? "Unknown product";
+  const customer = item.orders?.customer_details;
 
-  // This is a mock, as price is not available in the schema
-  const price = 1000;
-  const lineTotal = price * item.quantity;
+  const timeline = [{ key: "placed", label: "Order Placed", date: formatDisplayDate(item.orders?.order_date) }];
+  if (item.delivery_date) {
+    timeline.push({ key: "delivered", label: "Delivered", date: formatDisplayDate(item.delivery_date) });
+  }
 
-  const details: OrderDetails = {
+  return {
     id: item.id,
-    customerName: (item.orders as any).customer_details.customer_name,
-    orderDate: new Date((item.orders as any).order_date).toLocaleDateString(),
-    dueDate: new Date(item.due_date).toLocaleDateString(),
-    deliveryDate: item.delivery_date ? new Date(item.delivery_date).toLocaleDateString() : null,
-    status: item.delivery_date ? "Delivered" : item.production_stage,
-    productName:
-      item.product_type === "sofa"
-        ? (item.sofa_products as any).model_name
-        : (item.bed_products as any).model_name,
-    productType: item.product_type === "sofa" ? "Sofa" : "Bed",
-    shippingAddress: (item.orders as any).customer_details.address,
-    billingAddress: (item.orders as any).customer_details.address,
+    customerName: customer?.customer_name ?? "Unknown customer",
+    orderDate: formatDisplayDate(item.orders?.order_date),
+    dueDate: formatDisplayDate(item.due_date),
+    deliveryDate: item.delivery_date ? formatDisplayDate(item.delivery_date) : null,
+    status: item.delivery_date ? "Delivered" : "In production",
+    productName,
+    productType: isSofa ? "Sofa" : "Bed",
+    shippingAddress: customer?.address ?? "",
     items: [
       {
-        name:
-          item.product_type === "sofa"
-            ? (item.sofa_products as any).model_name
-            : (item.bed_products as any).model_name,
-        sku: `SKU-${item.product_type === "sofa" ? item.sofa_product_id : item.bed_product_id}`,
+        name: productName,
+        sku: `SKU-${isSofa ? item.sofa_product_id : item.bed_product_id}`,
         quantity: item.quantity,
-        price: price,
-        lineTotal: lineTotal,
       },
     ],
-    timeline: buildTimeline((item.orders as any).order_date, item.delivery_date, item.production_stage),
+    timeline,
   };
-
-  return details;
 }
