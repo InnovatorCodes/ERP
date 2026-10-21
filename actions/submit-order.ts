@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { authorize, ROLES, userFacingDbError } from '@/lib/auth';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { IMAGE_BUCKET, newImagePath, storagePathFromSignedUrl, type ImageFolder } from '@/lib/storage';
 
 // --- Zod Helpers ---
 
@@ -27,10 +29,11 @@ const numberString = z.preprocess((val) => {
   return isNaN(num) ? null : num;
 }, z.number().nullable().optional());
 
-// Handle text strings, converting empty/"null" to null
+// Handle text strings, converting missing/empty/"null" to null
 const textString = z.preprocess((val) => {
-  if (val === '' || val === 'null' || val === undefined) return null;
-  return String(val);
+  if (val === null || val === undefined) return null;
+  const text = String(val).trim();
+  return text === '' || text === 'null' ? null : text;
 }, z.string().nullable().optional());
 
 // --- Schema Definition ---
@@ -39,8 +42,14 @@ const productSchema = z.object({
   product_type: z.enum(['sofa', 'bed']),
   is_existing_model: checkboxBool,
   is_customization: checkboxBool,
-  quantity: z.preprocess((val) => Number(val) || 1, z.number()),
-  due_date: textString,
+  quantity: z.preprocess(
+    (val) => (val === null || val === '' ? 1 : Number(val)),
+    z.number({ invalid_type_error: 'Quantity must be a number.' }).int().min(1, 'Quantity must be at least 1.').max(1000, 'Quantity cannot exceed 1000.')
+  ),
+  due_date: z.preprocess(
+    (val) => (typeof val === 'string' ? val : ''),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Every product needs a due date.')
+  ),
 
   // References
   sofa_product_id: textString,
@@ -92,6 +101,22 @@ const productSchema = z.object({
   headboard_type: textString,
   storage_option: textString,
   bed_portion: textString,
+}).superRefine((product, ctx) => {
+  const productId = product.product_type === 'sofa' ? product.sofa_product_id : product.bed_product_id;
+
+  if (!product.is_existing_model && !product.is_customization) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Each item must be an existing model, or have Customize turned on to describe a new one.' });
+    return;
+  }
+  if (product.is_existing_model && !productId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Select the existing model for each item.' });
+  }
+  if (product.is_customization && !product.model_name) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'New and customised products need a model name.' });
+  }
+  if (product.is_customization && product.product_type === 'sofa' && !product.model_family_configuration) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'New and customised sofas need a model family configuration.' });
+  }
 });
 
 // Export inferred type for usage elsewhere
@@ -124,9 +149,12 @@ export async function submitOrder(prevState: FormState, formData: FormData) {
 
   const { selectedCustomerId, totalProducts } = parsedBase.data;
 
+  // Paths uploaded or copied during this request, removed again if the order fails.
+  const createdImagePaths: string[] = [];
+
   try {
-    // Process products in parallel
-    const productPromises = Array.from({ length: totalProducts }).map(async (_, i) => {
+    // 1. Validate every product before touching storage.
+    const parsedProducts = Array.from({ length: totalProducts }).map((_, i) => {
       const base = `products[${i}]`;
 
       // 1. Extract raw values for this product index to feed into Zod
@@ -181,28 +209,32 @@ export async function submitOrder(prevState: FormState, formData: FormData) {
         bed_portion: formData.get(`${base}.bed_portion`),
       };
 
-      // 2. Validate and Transform
-      const product = await productSchema.parseAsync(rawData);
-
-      // 3. Handle File Uploads (Parallel)
-      const refImg = formData.get(`${base}.reference_image_url`);
-      const drawImg = formData.get(`${base}.measurement_drawing_url`);
-
-      const [refUrl, drawUrl] = await Promise.all([
-        uploadFile(supabase, refImg, 'reference', i),
-        uploadFile(supabase, drawImg, 'measurement', i),
-      ]);
-
-      return {
-        ...product,
-        reference_image_url: refUrl ?? undefined,
-        measurement_drawing_url: drawUrl ?? undefined,
-      };
+      return { base, product: productSchema.parse(rawData) };
     });
 
-    const products = await Promise.all(productPromises);
+    // 2. Images, only for items that create a new product row. A new upload
+    //    wins; otherwise a customised copy gets its own copy of the original
+    //    model's image, so editing either product never breaks the other.
+    const settled = await Promise.allSettled(parsedProducts.map(async ({ base, product }) => {
+      if (product.is_existing_model && !product.is_customization) {
+        return product;
+      }
+      const [referenceImage, measurementDrawing] = await Promise.all([
+        resolveImage(supabase, formData, `${base}.reference_image_url`, 'reference', createdImagePaths),
+        resolveImage(supabase, formData, `${base}.measurement_drawing_url`, 'measurement', createdImagePaths),
+      ]);
+      return {
+        ...product,
+        reference_image_url: referenceImage ?? undefined,
+        measurement_drawing_url: measurementDrawing ?? undefined,
+      };
+    }));
 
-    // 4. Submit via RPC
+    const failure = settled.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    const products = settled.map((result) => (result as PromiseFulfilledResult<ProductItem>).value);
+
+    // 3. Create the order, its items and any new products in one transaction.
     const { data: orderId, error } = await supabase.rpc('submit_full_order', {
       p_customer_id: parseInt(selectedCustomerId, 10),
       p_products: products,
@@ -210,6 +242,7 @@ export async function submitOrder(prevState: FormState, formData: FormData) {
 
     if (error) {
       console.error('submit_full_order failed:', error);
+      await removeImages(supabase, createdImagePaths);
       return { success: false, message: userFacingDbError(error, 'Failed to place the order. Please check the product details.') };
     }
 
@@ -217,34 +250,52 @@ export async function submitOrder(prevState: FormState, formData: FormData) {
     return { success: true, message: `Order #${orderId} created successfully!` };
 
   } catch (error: unknown) {
-    // Zod Error Handling
+    await removeImages(supabase, createdImagePaths);
+
     if (error instanceof z.ZodError) {
       console.error('Validation Error:', error.flatten());
-      return { success: false, message: 'Form validation failed. Please check your inputs.' };
+      return { success: false, message: error.issues[0]?.message ?? 'Form validation failed. Please check your inputs.' };
     }
 
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    console.error('Order submission error:', errorMessage);
-    return { success: false, message: errorMessage };
+    console.error('Order submission error:', error);
+    return { success: false, message: error instanceof Error ? error.message : 'An unexpected error occurred.' };
   }
 }
 
-// --- Helper for File Uploads ---
-async function uploadFile(supabase: any, file: FormDataEntryValue | null, folder: string, index: number): Promise<string | null> {
-  if (file instanceof File && file.size > 0) {
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${index}_${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    const filePath = `${folder}/${fileName}`;
-    const { data, error } = await supabase.storage.from('order-images').upload(filePath, file);
+// --- Image helpers ---
 
-    if (error) {
-      // Log error but maybe don't fail the whole order? 
-      // For now, let's throw to be safe as per original logic.
-      throw new Error(`Failed to upload ${folder} image: ${error.message}`);
-    }
-    return data.path;
-  } else if (typeof file === 'string' && file !== '') {
-    return file;
+async function resolveImage(
+  supabase: SupabaseClient,
+  formData: FormData,
+  fieldName: string,
+  folder: ImageFolder,
+  createdPaths: string[]
+): Promise<string | null> {
+  const file = formData.get(fieldName);
+  if (file instanceof File && file.size > 0) {
+    const path = newImagePath(folder, file.name);
+    const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, { contentType: file.type });
+    if (error) throw new Error(`Failed to upload the ${folder} image: ${error.message}`);
+    createdPaths.push(path);
+    return path;
   }
+
+  // ImageUploadDisplayField sends the image the item already had (a signed URL)
+  // in "<field>_from_form", or 'null' if the user removed it.
+  const existingPath = storagePathFromSignedUrl(formData.get(`${fieldName}_from_form`));
+  if (existingPath) {
+    const path = newImagePath(folder, existingPath);
+    const { error } = await supabase.storage.from(IMAGE_BUCKET).copy(existingPath, path);
+    if (error) throw new Error(`Failed to copy the ${folder} image: ${error.message}`);
+    createdPaths.push(path);
+    return path;
+  }
+
   return null;
+}
+
+async function removeImages(supabase: SupabaseClient, paths: string[]) {
+  if (paths.length === 0) return;
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(paths);
+  if (error) console.error('Failed to clean up uploaded images:', error);
 }

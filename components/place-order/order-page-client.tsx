@@ -41,6 +41,17 @@ const PlaceOrderPage = () => {
 
     const [state, formAction] = useActionState(submitOrder, { success: false, message: '' });
     const hasNameError = orderItems.some(item => item.nameError);
+    // Required choices the browser can't check (they live in hidden inputs).
+    const itemProblems = orderItems.flatMap((item, index) => {
+        const label = `Item ${index + 1}`;
+        if (!item.id && !item.isCustom) return [`${label}: select an existing model, or turn on Customize to describe a new one.`];
+        const problems: string[] = [];
+        if (!item.due_date) problems.push(`${label}: choose a due date.`);
+        if (item.isCustom && item.type === 'Sofa' && !item.details.model_family_configuration) {
+            problems.push(`${label}: choose a model family configuration.`);
+        }
+        return problems;
+    });
 
     useEffect(() => {
         if (state.success) {
@@ -53,7 +64,9 @@ const PlaceOrderPage = () => {
             const newItems = [...currentItems];
             const updatedItem = { ...newItems[index], [field]: value };
 
-            if (field === 'type') {
+            // Switching type or clearing the selected model starts the item over,
+            // so details of the previous model are never submitted by mistake.
+            if (field === 'type' || (field === 'id' && value === null)) {
                 updatedItem.id = null;
                 updatedItem.details = {} as ProductWithFiles;
                 updatedItem.isCustom = false;
@@ -127,7 +140,11 @@ const PlaceOrderPage = () => {
                     </div>
                     <div className="lg:col-span-1 space-y-6 sticky top-6">
                         <CustomerSelector customer={selectedCustomer} onSelect={setSelectedCustomer} />
-                        <OrderSummary itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)} disabled={hasNameError || !selectedCustomer} />
+                        <OrderSummary
+                            itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+                            problems={selectedCustomer ? itemProblems : ['Select a customer.', ...itemProblems]}
+                            disabled={hasNameError || !selectedCustomer || itemProblems.length > 0}
+                        />
                         {state?.message && (
                              <div className={`flex items-start gap-3 p-4 rounded-lg ${state.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                  <CheckCircle className="h-5 w-5 flex-shrink-0" />
@@ -149,10 +166,16 @@ const CustomerSelector = ({ customer, onSelect }: { customer: Customer | null, o
     const searchRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (searchQuery.length < 2) { setSearchResults([]); return; }
+        if (searchQuery.trim().length < 2) {
+            setSearchResults([]);
+            setIsLoading(false);
+            return;
+        }
+        let cancelled = false;
         setIsLoading(true);
         const timer = setTimeout(async () => {
             const results = await searchCustomers(searchQuery);
+            if (cancelled) return;
             const formattedResults: Customer[] = results.map(c => ({
                 id: c.id, name: c.customer_name, email: c.email, company: c.company || 'N/A', address: c.address, phone: c.mobile_number, customerType: c.customer_type,
                 dateAdded: new Date(c.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -161,7 +184,10 @@ const CustomerSelector = ({ customer, onSelect }: { customer: Customer | null, o
             setSearchResults(formattedResults);
             setIsLoading(false);
         }, 500);
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [searchQuery]);
 
     const handleSelectCustomer = (selected: Customer) => {
@@ -223,12 +249,17 @@ const SubmitButton = ({ disabled }: { disabled: boolean }) => {
     );
 }
 
-const OrderSummary = ({  itemCount, disabled }: {  itemCount: number, disabled: boolean }) => (
+const OrderSummary = ({ itemCount, problems, disabled }: { itemCount: number, problems: string[], disabled: boolean }) => (
     <div className="bg-white p-6 rounded-xl shadow-md">
         <h3 className="font-bold text-xl mb-4 text-gray-800">Order Summary</h3>
         <div className="space-y-2 text-gray-600">
             <div className="flex justify-between"><p>Total Items</p><p className="font-medium">{itemCount}</p></div>
         </div>
+        {problems.length > 0 && (
+            <ul className="mt-4 space-y-1 text-sm text-red-700 list-disc pl-5">
+                {problems.map(problem => <li key={problem}>{problem}</li>)}
+            </ul>
+        )}
         <SubmitButton disabled={disabled} />
     </div>
 );
