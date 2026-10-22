@@ -32,7 +32,8 @@ Every order item moves through six production stages, from carpentry to packing,
     <td width="50%"><img src="./screenshots/customers.png" alt="Customers" /><p align="center"><sub>Customers</sub></p></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="./screenshots/order-history.png" alt="Order history" /><p align="center"><sub>Order history</sub></p></td>
+    <td width="50%"><img src="./screenshots/order-history.png" alt="Order history" /><p align="center"><sub>Order history</sub></p></td>
+    <td width="50%"><img src="./screenshots/employees.png" alt="Employees, as seen by the demo account" /><p align="center"><sub>Employees (demo view, emails masked)</sub></p></td>
   </tr>
 </table>
 
