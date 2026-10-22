@@ -1,7 +1,6 @@
 "use client"
 import { useState } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +10,6 @@ export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const router = useRouter()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -23,9 +21,11 @@ export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
       toast.error(error.message)
       setIsSubmitting(false)
     } else {
-      // Middleware sends "/" to the home page for the user's role.
-      router.replace("/")
-      router.refresh()
+      // Full page load so the middleware sees the new session cookies and
+      // sends "/" to the role's home page. If it sends the user back here
+      // with an error, the page starts fresh and shows the message instead
+      // of staying on "Logging in...".
+      window.location.assign("/")
     }
   }
 

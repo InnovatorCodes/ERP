@@ -484,7 +484,14 @@ create policy pcp_select on public.product_checklist_progress for select to auth
 
 -- -----------------------------------------------------------------------------
 -- Table privileges (defence in depth on top of RLS)
+-- Granted explicitly: projects created without "automatically expose new
+-- tables" give signed-in users no table access at all, which makes every
+-- profile lookup fail.
 -- -----------------------------------------------------------------------------
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
 revoke all on all tables    in schema public from anon;
 revoke all on all sequences in schema public from anon;
 

@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
     url.search = search
     return withSessionCookies(NextResponse.redirect(url))
   }
-  const deny = (status: 401 | 403, error: string) =>
+  const deny = (status: 401 | 403 | 503, error: string) =>
     withSessionCookies(NextResponse.json({ error }, { status }))
 
   // getUser() validates the session with Supabase Auth; don't trust the cookie alone.
@@ -51,11 +51,22 @@ export async function middleware(request: NextRequest) {
     return isApi ? deny(401, 'You must be signed in.') : redirectTo('/login')
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .maybeSingle()
+
+  // The lookup itself failed (permissions, network, misconfiguration). Keep
+  // the session so the problem can be fixed without signing in again.
+  if (profileError) {
+    console.error(`[middleware] Could not read the profile of user ${user.id}: ${profileError.message}`)
+    if (isLogin) return response
+    return isApi
+      ? deny(503, 'Your profile could not be loaded. Please try again later.')
+      : redirectTo('/login', '?error=profile_unavailable')
+  }
+
   const role = isUserRole(profile?.role) ? profile.role : null
 
   // Signed in but no role (e.g. created outside the Employees page): end the
