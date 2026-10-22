@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import Image from "next/image"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,64 +31,80 @@ export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-xl backdrop-blur-sm">
-        <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-gray-800">
-          Welcome Back
-        </h2>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Please log in to continue
-        </p>
-
-        {errorMessage && (
-          <p role="alert" className="mb-6 rounded-lg bg-red-50 p-3 text-center text-sm text-red-700">
-            {errorMessage}
+    <div className="grid min-h-screen w-full lg:grid-cols-2">
+      {/* Brand panel */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex">
+        <div className="flex items-center gap-3">
+          <Image src="/Vinyork_Logo.png" alt="Vinyork" width={35} height={40} className="h-10 w-auto" priority />
+          <span className="text-xl uppercase tracking-[0.25em] text-sidebar-accent-foreground" style={{ fontFamily: 'Mainlux, sans-serif' }}>
+            Vinyork
+          </span>
+        </div>
+        <div className="max-w-md space-y-3">
+          <p className="text-3xl font-semibold leading-tight text-sidebar-accent-foreground">
+            Every order, from carpentry to delivery.
           </p>
-        )}
+          <p className="text-sidebar-muted">
+            Customers, products, production and history in one place.
+          </p>
+        </div>
+        <p className="text-xs text-sidebar-muted">© {new Date().getFullYear()} Vinyork</p>
+      </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-700">
-              Email Address
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-lg border-gray-300 bg-gray-50 focus:border-indigo-500 focus:ring-indigo-500"
-              placeholder="you@example.com"
-            />
+      {/* Sign-in form */}
+      <div className="flex items-center justify-center bg-background p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <Image src="/Vinyork_Logo.png" alt="Vinyork" width={28} height={32} className="h-8 w-auto" />
+            <span className="text-lg uppercase tracking-[0.2em]" style={{ fontFamily: 'Mainlux, sans-serif' }}>Vinyork</span>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-gray-700">
-              Password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg border-gray-300 bg-gray-50 focus:border-indigo-500 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Welcome back</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in with your work account.</p>
 
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-black text-white shadow-md transition hover:bg-gray-800 hover:shadow-lg"
-          >
-            {isSubmitting ? "Logging in..." : "Login"}
-          </Button>
-        </form>
+          {errorMessage && (
+            <p role="alert" className="mt-6 rounded-lg border border-destructive/20 bg-destructive-soft p-3 text-sm text-destructive">
+              {errorMessage}
+            </p>
+          )}
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Accounts are created by an admin.
-        </p>
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-10 bg-card"
+                placeholder="you@vinyork.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-10 bg-card"
+              />
+            </div>
+
+            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Accounts are created by an admin.
+          </p>
+        </div>
       </div>
     </div>
   )

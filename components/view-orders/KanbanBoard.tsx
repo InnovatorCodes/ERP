@@ -1,11 +1,13 @@
 "use client";
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { CalendarClock, Truck } from 'lucide-react';
 import { Order } from './types';
-import { STAGE_CONFIG, PRIORITY_CONFIG } from './data';
+import { STAGE_CONFIG } from './data';
+import { PriorityBadge } from './badges';
 import { Button } from '../ui/button';
 import { markAsDelivered } from '@/actions/mark-as-delivered';
+import { cn, formatDisplayDate, isOverdue } from '@/lib/utils';
 
 interface KanbanBoardProps {
   orders: Order[];
@@ -16,8 +18,12 @@ interface KanbanBoardProps {
 type ColumnKey = keyof typeof STAGE_CONFIG;
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ orders, onOrderSelect, onOrdersChanged }) => {
-  const columns = Object.keys(STAGE_CONFIG) as ColumnKey[];
   const [deliveringId, setDeliveringId] = useState<string | null>(null);
+
+  // Delivered items only appear when filtered for, so hide that column when it's empty.
+  const columns = (Object.keys(STAGE_CONFIG) as ColumnKey[]).filter(
+    (key) => key !== 'delivered' || orders.some((o) => o.stage === 'delivered')
+  );
 
   const handleMarkAsDelivered = async (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,69 +40,69 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ orders, onOrderSelect, onOrde
   };
 
   return (
-    <motion.div
-      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    // Columns sit side by side in stage order and scroll horizontally, like a workshop board.
+    <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4">
       {columns.map(columnKey => {
         // An order can be in several active stages at once, e.g. "carpentry, stitching".
         const columnOrders = orders.filter(o => o.stage.split(',').map(s => s.trim()).includes(columnKey));
         return (
-          <div key={columnKey} className="bg-gray-50 rounded-xl flex flex-col border border-gray-200/50">
-            <div className="p-4 border-b border-gray-200/50">
-              <h3 className="font-semibold text-black flex items-center">
-                <span
-                  className="w-2.5 h-2.5 rounded-full mr-3"
-                  style={{ backgroundColor: STAGE_CONFIG[columnKey].color }}
-                ></span>
-                {STAGE_CONFIG[columnKey].label}
-                <span className="ml-auto text-sm font-normal bg-gray-200 text-gray-800 w-6 h-6 flex items-center justify-center rounded-full">
-                  {columnOrders.length}
-                </span>
-              </h3>
-            </div>
-            <div className="p-4 space-y-4 flex-grow min-h-[150px]">
+          <section key={columnKey} className="flex w-72 shrink-0 flex-col rounded-xl border bg-muted/60">
+            <header className="flex items-center gap-2 border-b px-4 py-3">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: STAGE_CONFIG[columnKey].color }} />
+              <h3 className="text-sm font-semibold text-foreground">{STAGE_CONFIG[columnKey].label}</h3>
+              <span className="ml-auto rounded-full bg-card px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                {columnOrders.length}
+              </span>
+            </header>
+            <div className="flex min-h-[160px] flex-1 flex-col gap-3 p-3">
               {columnOrders.length > 0 ? (
-                columnOrders.map(order => (
-                  <motion.div
-                    key={order.id}
-                    layout
-                    onClick={() => onOrderSelect(order)}
-                    className="bg-white p-4 rounded-lg cursor-pointer hover:scale-105 transition-transform duration-200 border-l-4"
-                    style={{ borderColor: PRIORITY_CONFIG[order.priority].color }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <p className="font-bold text-black">{order.id}</p>
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: PRIORITY_CONFIG[order.priority].color }}
-                      >
-                        {PRIORITY_CONFIG[order.priority].label}
-                      </span>
+                columnOrders.map(order => {
+                  const overdue = order.stage !== 'delivered' && isOverdue(order.dueDate);
+                  return (
+                    <div
+                      key={order.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onOrderSelect(order)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOrderSelect(order);
+                        }
+                      }}
+                      className="cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">#{order.id}</p>
+                        <PriorityBadge priority={order.priority} />
+                      </div>
+                      <p className="mt-1 truncate text-sm text-foreground">{order.product}</p>
+                      <p className="truncate text-xs text-muted-foreground">{order.customer}</p>
+                      <p className={cn("mt-2 flex items-center gap-1 text-xs", overdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+                        <CalendarClock className="size-3.5" />
+                        {overdue ? 'Overdue · ' : 'Due '}{formatDisplayDate(order.dueDate)}
+                      </p>
+                      {order.stage === 'out_for_delivery' && (
+                        <Button
+                          onClick={(e) => handleMarkAsDelivered(order.id, e)}
+                          disabled={deliveringId === order.id}
+                          size="sm"
+                          className="mt-3 w-full"
+                        >
+                          <Truck /> {deliveringId === order.id ? 'Saving...' : 'Mark delivered'}
+                        </Button>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-800 truncate mt-1">{order.product}</p>
-                    <p className="text-xs text-gray-500 mt-2">{order.customer}</p>
-                    {order.stage === 'out_for_delivery' && (
-                      <Button
-                        onClick={(e) => handleMarkAsDelivered(order.id, e)}
-                        disabled={deliveringId === order.id}
-                        size="sm"
-                        className="mt-2"
-                      >
-                        {deliveringId === order.id ? 'Saving...' : 'Mark as Delivered'}
-                      </Button>
-                    )}
-                  </motion.div>
-                ))
+                  );
+                })
               ) : (
-                <div className="text-center text-gray-400 text-sm italic pt-8">No orders here.</div>
+                <p className="py-6 text-center text-xs text-muted-foreground">No orders</p>
               )}
             </div>
-          </div>
+          </section>
         );
       })}
-    </motion.div>
+    </div>
   );
 };
 

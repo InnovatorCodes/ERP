@@ -2,31 +2,34 @@
 
 import React, { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import { X } from 'lucide-react';
-import { addCustomerAction } from '@/actions/add-customer'; // Import the server action
+import { addCustomerAction } from '@/actions/add-customer';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AddCustomerModalProps {
     /** Called once when the modal should close; `added` is true after a successful save. */
     onClose: (added: boolean) => void;
 }
 
-// A separate component for the submit button to use the `useFormStatus` hook.
-// This hook provides the pending state of the form submission.
+const CUSTOMER_TYPES = [
+    { value: 'b2b', label: 'B2B' },
+    { value: 'b2c', label: 'B2C' },
+    { value: 'architecture', label: 'Architecture' },
+    { value: 'interior design', label: 'Interior Design' },
+];
+
 function SubmitButton() {
     const { pending } = useFormStatus();
-
     return (
-        <button
-            type="submit"
-            className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed"
-            disabled={pending}
-        >
-            {pending ? 'Saving...' : 'Save Customer'}
-        </button>
+        <Button type="submit" disabled={pending}>
+            {pending ? 'Saving...' : 'Save customer'}
+        </Button>
     );
 }
-
-const customerTypes = ['b2b', 'b2c', 'architecture', 'interior design'];
 
 const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ onClose }) => {
     const [state, formAction] = useActionState(addCustomerAction, { message: '' });
@@ -39,48 +42,61 @@ const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ onClose }) => {
     }, [state, onClose]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Add New Customer</h2>
-                    <button onClick={() => onClose(false)} className="text-gray-400 hover:text-gray-600">
-                        <X size={24} />
-                    </button>
-                </div>
+        <Dialog open onOpenChange={(open) => !open && onClose(false)}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Add customer</DialogTitle>
+                    <DialogDescription>Customers can be selected when placing an order.</DialogDescription>
+                </DialogHeader>
 
-                <form action={formAction}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <input name="name" type="text" placeholder="Full Name" className="w-full px-4 py-3 border border-gray-300 rounded-lg" required />
-                        <input name="company" type="text" placeholder="Company (Optional)" className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
-                        <input name="email" type="email" placeholder="Email Address" className="w-full px-4 py-3 border border-gray-300 rounded-lg" required />
-                        <input name="phone" type="tel" placeholder="Phone Number (Optional)" className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
-
-                        <div className="md:col-span-2">
-                            <select name="customerType" className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white" defaultValue="" required>
-                                <option value="" disabled>Select Customer Type</option>
-                                {customerTypes.map(type => {
-                                    let label=type.length==3?type.toUpperCase(): type.charAt(0).toUpperCase() + type.slice(1)
-                                    if(type=="interior design") label="Interior Design"
-                                    return (<option key={type} value={type} className="capitalize">{label}</option>)
-                                })}
-                            </select>
+                <form action={formAction} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="customer-name">Full name</Label>
+                            <Input id="customer-name" name="name" required />
                         </div>
-
-                        <textarea name="address" placeholder="Address / Location" className="w-full px-4 py-3 border border-gray-300 rounded-lg md:col-span-2" required />
+                        <div className="space-y-2">
+                            <Label htmlFor="customer-company">Company <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input id="customer-company" name="company" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="customer-email">Email</Label>
+                            <Input id="customer-email" name="email" type="email" required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="customer-phone">Phone <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input id="customer-phone" name="phone" type="tel" />
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="customer-type">Customer type</Label>
+                            <Select name="customerType" required>
+                                <SelectTrigger id="customer-type" className="w-full">
+                                    <SelectValue placeholder="Select a type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CUSTOMER_TYPES.map(type => (
+                                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="customer-address">Address</Label>
+                            <Textarea id="customer-address" name="address" rows={3} required />
+                        </div>
                     </div>
 
-                    {/* Display an error message if the submission fails */}
                     {state?.message && state.message !== 'success' && (
-                        <p className="text-red-500 text-sm mb-4">{state.message}</p>
+                        <p role="alert" className="rounded-lg bg-destructive-soft p-3 text-sm text-destructive">{state.message}</p>
                     )}
 
-                    <div className="flex justify-end gap-4">
-                        <button type="button" onClick={() => onClose(false)} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onClose(false)}>Cancel</Button>
                         <SubmitButton />
-                    </div>
+                    </DialogFooter>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 };
 

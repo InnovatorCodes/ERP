@@ -1,132 +1,88 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { X, Mail, Phone, MapPin, ShoppingCart, Calendar, Clock, Loader2 } from 'lucide-react';
 import { Customer } from '@/types/customers';
 import { getCustomerDetails } from '@/actions/get-customer-details';
-import { X, Mail, Phone, MapPin, ShoppingCart, Calendar, Clock } from 'lucide-react';
-import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { formatDisplayDate } from '@/lib/utils';
 
 interface CustomerDetailPanelProps {
     customerId: string;
     onClose: () => void;
 }
 
-interface DetailItemProps {
-    Icon: React.ElementType;
-    label: string;
-    value: string | number;
-}
-
-const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    try {
-        const date = new Date(dateString);
-        return new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true,
-        }).format(date);
-    } catch (error) {
-        console.error("Error formatting date:", dateString, error);
-        return 'Invalid Date';
-    }
-};
-
-const DetailItem: React.FC<DetailItemProps> = ({ Icon, label, value }) => (
-    <div className="flex items-start text-sm">
-        <Icon className="h-4 w-4 text-gray-400 mt-0.5 mr-3 flex-shrink-0" />
-        <div className="flex flex-col">
-            <span className="text-gray-500">{label}</span>
-            <span className="text-gray-900 font-medium">{value}</span>
+const DetailItem = ({ Icon, label, value }: { Icon: React.ElementType; label: string; value: React.ReactNode }) => (
+    <div className="flex items-start gap-3 text-sm">
+        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0">
+            <p className="text-muted-foreground">{label}</p>
+            <p className="break-words font-medium text-foreground">{value || '—'}</p>
         </div>
     </div>
 );
 
 const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ customerId, onClose }) => {
-    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [customer, setCustomer] = useState<(Customer & { status?: string }) | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchDetails = async () => {
-            setIsLoading(true);
-            const details = await getCustomerDetails(customerId);
+        let cancelled = false;
+        setIsLoading(true);
+        getCustomerDetails(customerId).then((details) => {
+            if (cancelled) return;
             setCustomer(details);
             setIsLoading(false);
+        });
+        return () => {
+            cancelled = true;
         };
-
-        if (customerId) {
-            fetchDetails();
-        }
     }, [customerId]);
 
-    if (isLoading) {
-        return (
-            <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col items-center justify-center">
-                <p className="text-gray-500 font-semibold">Loading customer details...</p>
-            </div>
-        );
-    }
-
-    if (!customer) {
-        return (
-            <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col items-center justify-center">
-                <p className="text-red-500 font-semibold">Customer not found.</p>
-                <button onClick={onClose} className="mt-4 text-gray-400 hover:text-gray-600 transition-colors">
-                    <X className="h-6 w-6" />
-                </button>
-            </div>
-        );
-    }
-
     return (
-        <div className="bg-white rounded-xl shadow-lg p-6 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center">
-                    {customer.avatar ? (
-                        <Image width={64} height={64} className="h-16 w-16 rounded-full object-cover" src={customer.avatar} alt={`${customer.name}'s avatar`} />
-                    ) : (
-                        <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xl font-semibold">
-                            {customer.name ? customer.name.charAt(0).toUpperCase() : 'N/A'}
+        <div className="rounded-xl border bg-card shadow-sm">
+            <div className="flex items-start justify-between gap-3 border-b p-5">
+                {isLoading || !customer ? (
+                    <p className="font-semibold text-foreground">Customer details</p>
+                ) : (
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-semibold text-accent-foreground">
+                            {customer.name ? customer.name.charAt(0).toUpperCase() : '?'}
                         </div>
-                    )}
-                    <div className="ml-4">
-                        <h3 className="text-2xl font-bold text-gray-900">{customer.name}</h3>
-                        <p className="text-gray-500">{customer.company}</p>
+                        <div className="min-w-0">
+                            <p className="truncate text-lg font-semibold text-foreground">{customer.name}</p>
+                            {customer.company && <p className="truncate text-sm text-muted-foreground">{customer.company}</p>}
+                            {customer.status && <Badge variant="secondary" className="mt-1 uppercase tracking-wide">{customer.status}</Badge>}
+                        </div>
                     </div>
-                </div>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-                    <X className="h-6 w-6" />
-                </button>
+                )}
+                <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close customer details">
+                    <X />
+                </Button>
             </div>
 
-            <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-                {/* Contact Info */}
-                <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Contact Information</h4>
-                    <div className="space-y-4">
+            {isLoading ? (
+                <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" /> Loading...
+                </div>
+            ) : !customer ? (
+                <p className="p-10 text-center text-sm text-muted-foreground">Customer not found.</p>
+            ) : (
+                <div className="space-y-6 p-5">
+                    <section className="space-y-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h3>
                         <DetailItem Icon={Mail} label="Email" value={customer.email} />
                         <DetailItem Icon={Phone} label="Phone" value={customer.phone} />
-                        <DetailItem Icon={MapPin} label="Location" value={customer.address} />
-                    </div>
+                        <DetailItem Icon={MapPin} label="Address" value={customer.address} />
+                    </section>
+                    <section className="space-y-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Orders</h3>
+                        <DetailItem Icon={ShoppingCart} label="Total orders" value={String(customer.totalOrders ?? 0)} />
+                        <DetailItem Icon={Clock} label="Last order" value={formatDisplayDate(customer.lastOrder)} />
+                        <DetailItem Icon={Calendar} label="Customer since" value={formatDisplayDate(customer.dateAdded)} />
+                    </section>
                 </div>
-
-                {/* Orders (no pricing is stored yet, so there is no spend figure) */}
-                <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Orders</h4>
-                    <DetailItem Icon={ShoppingCart} label="Total Orders" value={customer.totalOrders ?? 0} />
-                </div>
-
-                {/* History */}
-                <div>
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">History</h4>
-                    <div className="space-y-4"> 
-                        <DetailItem Icon={Calendar} label="Customer Since" value={formatDate(customer.dateAdded)} />
-                        <DetailItem Icon={Clock} label="Last Order" value={formatDate(customer.lastOrder)} />
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 };

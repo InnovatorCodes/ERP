@@ -34,15 +34,18 @@ interface FileUploadFieldProps {
 export function FileUploadField({ label, name, accept }: FileUploadFieldProps) {
   const [fileName, setFileName] = useState<string | null>(null)
 
+  const inputRef = useRef<HTMLInputElement>(null)
+
   return (
-    <div className="flex flex-col space-y-2">
+    <div className="flex flex-col space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
       <div
         className={cn(
-          "relative flex items-center justify-center w-full cursor-pointer rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm transition hover:border-indigo-500 hover:bg-indigo-50"
+          "relative flex w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/50 focus-within:ring-2 focus-within:ring-ring"
         )}
       >
         <input
+          ref={inputRef}
           id={name}
           name={name}
           type="file"
@@ -55,25 +58,26 @@ export function FileUploadField({ label, name, accept }: FileUploadFieldProps) {
         />
 
         {fileName ? (
-          <div className="flex items-center space-x-2">
-            <Upload className="h-5 w-5 text-indigo-500" />
-            <span className="truncate">{fileName}</span>
+          <div className="relative z-10 flex items-center gap-2 text-foreground">
+            <Upload className="size-4 text-primary" />
+            <span className="max-w-[12rem] truncate">{fileName}</span>
             <button
               type="button"
-              onClick={() => setFileName(null)}
-              className="ml-2 text-gray-500 hover:text-red-500"
+              aria-label="Remove file"
+              onClick={() => {
+                setFileName(null)
+                if (inputRef.current) inputRef.current.value = ""
+              }}
+              className="text-muted-foreground hover:text-destructive"
             >
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center space-y-2 text-gray-500">
-            <Upload className="h-6 w-6" />
-            <span>
-              <span className="font-medium text-indigo-600">Click to upload</span>{" "}
-              or drag & drop
-            </span>
-            <span className="text-xs text-gray-400">PNG, JPG, or PDF</span>
+          <div className="flex flex-col items-center gap-1">
+            <Upload className="mb-1 size-6" />
+            <span><span className="font-medium text-primary">Click to upload</span> or drag & drop</span>
+            <span className="text-xs">{accept?.includes('pdf') ? 'PNG, JPG or PDF' : 'PNG or JPG'}, up to 10 MB</span>
           </div>
         )}
       </div>
@@ -126,8 +130,8 @@ export default function AddProductForm({ onClose }: { onClose: () => void }) {
       
       <div className="space-y-4 border-t pt-6">
         {/* --- COMMON FIELDS --- */}
-        <h3 className="text-lg font-semibold col-span-full">General Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h3 className="font-semibold text-foreground">General information</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FileUploadField 
               label="Reference Image" 
               name="reference_image_url" 
@@ -164,7 +168,7 @@ export default function AddProductForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-6 border-t">
-        <Button type="button" variant="ghost" onClick={onClose} className="w-full sm:w-auto">Cancel</Button>
+        <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancel</Button>
         <SubmitButton />
       </div>
     </form>

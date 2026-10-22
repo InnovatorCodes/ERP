@@ -1,127 +1,124 @@
 "use client"
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Package, ShoppingCart, ClipboardList, History, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Package, ShoppingCart, ClipboardList, History, UserCog, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/context/user-context';
 import Image from 'next/image';
 import { canAccess, isUserRole } from '@/lib/roles';
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (isCollapsed: boolean) => void;
 }
 
+const menuItems = [
+  { name: 'Dashboard', icon: LayoutDashboard, href: "/dashboard" },
+  { name: 'Customers', icon: Users, href: "/customers" },
+  { name: 'Products', icon: Package, href: "/products" },
+  { name: 'Place Order', icon: ShoppingCart, href: "/place-order" },
+  { name: 'Production', icon: ClipboardList, href: "/view-orders" },
+  { name: 'Order History', icon: History, href: "/order-history" },
+  { name: 'Employees', icon: UserCog, href: "/employees" },
+];
+
+const getInitials = (name?: string) => {
+  if (!name || name.trim() === '') return 'U';
+  const names = name.trim().split(/\s+/);
+  if (names.length > 1 && names[1]) {
+    return `${names[0][0]}${names[1][0]}`.toUpperCase();
+  }
+  return (names[0][0] || '').toUpperCase();
+};
+
 export const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const pathname = usePathname();
-  const userContext = useUser();
-  const user = userContext?.user;
-  const signOut = userContext?.signOut;
-
-  const getInitials = (name?: string) => {
-    if (!name || name.trim() === '') return 'U';
-    const names = name.trim().split(/\s+/);
-    if (names.length > 1 && names[1]) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
-    }
-    return (names[0][0] || '').toUpperCase();
-  };
-
-  const menuItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: "/dashboard" },
-    { name: 'Customers', icon: Users, href: "/customers" },
-    { name: 'Products', icon: Package, href: "/products" },
-    { name: 'Place Order', icon: ShoppingCart, href: "/place-order" },
-    { name: 'View Orders', icon: ClipboardList, href: "/view-orders" },
-    { name: 'Order History', icon: History, href: "/order-history" },
-    { name: 'Employees', icon: Users, href: "/employees" },
-  ];
+  const { user, signOut } = useUser();
 
   // Same access rules as the middleware (lib/roles.ts).
   const role = isUserRole(user?.role) ? user.role : null;
-  const filteredMenuItems = menuItems.filter(item => canAccess(role, item.href));
+  const visibleItems = menuItems.filter(item => canAccess(role, item.href));
 
-  if (filteredMenuItems.length < 1) {
+  if (visibleItems.length < 1) {
     return null;
   }
 
   return (
     <aside
-      className={`flex flex-col bg-black text-white transition-all duration-300 ease-in-out h-full border-r border-gray-800 relative z-20 ${isCollapsed ? 'w-20' : 'w-64'
-        }`}
+      className={cn(
+        "relative z-20 flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-in-out",
+        isCollapsed ? "w-[72px]" : "w-60"
+      )}
     >
-      {/* --- Header --- */}
-      <div className="flex items-center justify-center h-16 border-b border-gray-800/50 shrink-0">
-        <div className={`flex items-center justify-center transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
-          <Image src="/Vinyork_Logo.png" alt="Vinyork Logo" className="h-8 w-auto" width={32} height={32} />
-          <span className="text-white text-xl ml-2 uppercase font-bold tracking-wider" style={{ fontFamily: 'Mainlux, sans-serif' }}>vinyork</span>
-        </div>
-        <div className={`flex items-center justify-center absolute transition-all duration-300 ${isCollapsed ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}`}>
-          <Image src="/Vinyork_Logo.png" alt="Vinyork Logo" className="h-8 w-auto" width={32} height={32} />
-        </div>
+      {/* --- Brand --- */}
+      <div className={cn("flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border", isCollapsed ? "justify-center" : "px-5")}>
+        <Image src="/Vinyork_Logo.png" alt="Vinyork" width={28} height={32} className="h-8 w-auto" priority />
+        {!isCollapsed && (
+          <span className="text-lg uppercase tracking-[0.2em] text-sidebar-accent-foreground" style={{ fontFamily: 'Mainlux, sans-serif' }}>
+            Vinyork
+          </span>
+        )}
       </div>
 
-      {/* --- Collapse/Expand Button --- */}
+      {/* --- Collapse/Expand --- */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute bottom-20 -right-3 z-30 bg-red-600 text-white p-1 rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-transform duration-300 transform"
+        className="absolute -right-3 top-20 z-30 flex size-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-muted shadow-md transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
-      {/* --- Navigation Menu --- */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
-        {filteredMenuItems.map((item) => {
-          const isActive = pathname === item.href;
+      {/* --- Navigation --- */}
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {visibleItems.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.name}
-              href={item?.href}
-              className={`flex items-center p-3 rounded-lg group transition-all duration-200 ${isActive
-                  ? 'bg-red-600/90 text-white shadow-md'
-                  : 'text-gray-400 hover:bg-gray-800/80 hover:text-white'
-                } ${isCollapsed ? 'justify-center' : ''}`}
-              title={isCollapsed ? item.name : ''}
+              href={item.href}
+              aria-current={isActive ? 'page' : undefined}
+              title={isCollapsed ? item.name : undefined}
+              className={cn(
+                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                isCollapsed && "justify-center px-0",
+                isActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                  : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
             >
-              <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${isCollapsed ? '' : 'mr-3'}`} />
-              <span
-                className={`font-medium text-sm transition-all duration-200 ease-in-out whitespace-nowrap overflow-hidden ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'
-                  }`}
-              >
-                {item.name}
-              </span>
+              <item.icon className="size-[18px] shrink-0" />
+              {!isCollapsed && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}
       </nav>
 
+      {/* --- Signed-in user --- */}
       {user && (
-        <div className="p-4 border-t border-gray-800 shrink-0 bg-black/50">
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="h-9 w-9 flex-shrink-0 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-white text-sm font-bold shadow-inner">
-              {getInitials(user?.full_name)}
+        <div className="shrink-0 border-t border-sidebar-border p-3">
+          <div className={cn("flex items-center gap-3 rounded-lg px-2 py-2", isCollapsed && "justify-center px-0")}>
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground">
+              {getInitials(user.full_name)}
             </div>
-            <div
-              className={`ml-3 transition-all duration-200 ease-in-out overflow-hidden ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'
-                }`}
-            >
-              <p className="font-semibold text-white text-sm truncate w-32">{user?.full_name ?? 'User'}</p>
-              <p className="text-xs text-gray-400 truncate w-32">{user?.email}</p>
-            </div>
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-sidebar-accent-foreground">{user.full_name ?? 'User'}</p>
+                <p className="truncate text-xs capitalize text-sidebar-muted">{user.role}</p>
+              </div>
+            )}
           </div>
           <button
             onClick={signOut}
-            className={`flex items-center p-2.5 mt-3 rounded-lg transition-colors duration-200 text-gray-400 hover:bg-red-900/30 hover:text-red-400 w-full ${isCollapsed ? 'justify-center' : ''}`}
-            title={isCollapsed ? 'Logout' : ''}
+            title={isCollapsed ? 'Log out' : undefined}
+            className={cn(
+              "mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+              isCollapsed && "justify-center px-0"
+            )}
           >
-            <LogOut className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
-            <span
-              className={`font-medium text-sm transition-all duration-200 ease-in-out whitespace-nowrap ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'
-                }`}
-            >
-              Logout
-            </span>
+            <LogOut className="size-[18px] shrink-0" />
+            {!isCollapsed && <span>Log out</span>}
           </button>
         </div>
       )}

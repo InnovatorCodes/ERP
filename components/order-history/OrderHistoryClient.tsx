@@ -5,9 +5,10 @@ import { toast } from "sonner";
 import { OrderHistory, OrderDetails } from "./types";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import OrderTable from "./OrderTable";
-import Pagination from "./Pagination";
 import OrderDetailsDrawer from "./OrderDetailsDrawer";
-import KPI from "./KPI";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { getOrderDetails } from "@/actions/get-order-details";
 import { getOrderHistory } from "@/actions/get-order-history";
 
@@ -79,14 +80,12 @@ export default function OrderHistoryClient({ initialOrders, initialTotalCount }:
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <KPI title="Delivered Orders" value={totalCount} />
-      </div>
+    <PageContainer>
+      <PageHeader title="Order History" description="Every order item that has been delivered." />
 
+      <div className="space-y-4">
       <FiltersBar
         onApplyFilters={applyFilters}
-        count={totalCount}
         exportParams={{
           q: filters.q,
           date_from: filters.date_from,
@@ -104,12 +103,19 @@ export default function OrderHistoryClient({ initialOrders, initialTotalCount }:
         isLoading={isLoading || isLoadingDetails}
       />
 
-      <Pagination page={page} totalPages={totalPages} setPage={setPage} />
+      <PaginationBar
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        disabled={isLoading}
+        summary={`${totalCount} delivered order item${totalCount === 1 ? '' : 's'}`}
+      />
+      </div>
 
       <OrderDetailsDrawer
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

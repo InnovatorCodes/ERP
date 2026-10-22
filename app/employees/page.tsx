@@ -1,32 +1,38 @@
 'use client';
+import { useState } from 'react';
+import { UserPlus } from 'lucide-react';
 import AddEmployeeForm from '@/components/add-employee-form';
 import { EmployeesList } from '@/components/employees-list';
 import RoleGuard from '@/components/role-guard';
 import { Button } from '@/components/ui/button';
+import { PageContainer } from '@/components/ui/page-container';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useState } from 'react';
 
-export default function AddEmployeePage() {
+export default function EmployeesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [listVersion, setListVersion] = useState(0);
   return (
     <RoleGuard allowedRoles={['admin']}>
-      <div className="p-4 space-y-8">
-        <div className="flex justify-between">
-          <h1 className="text-2xl font-bold">Manage Employees</h1>
+      <PageContainer>
+        <PageHeader title="Employees" description="Who can sign in, and what each person can access.">
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
-              <Button>Add new employee</Button>
+              <Button>
+                <UserPlus /> Add employee
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogTitle>Add employee</DialogTitle>
+                <DialogDescription>They can sign in straight away with this email and password.</DialogDescription>
               </DialogHeader>
               <AddEmployeeForm
                 onSuccess={() => {
@@ -36,9 +42,9 @@ export default function AddEmployeePage() {
               />
             </DialogContent>
           </Dialog>
-        </div>
+        </PageHeader>
         <EmployeesList refreshKey={listVersion} />
-      </div>
+      </PageContainer>
     </RoleGuard>
   );
 }

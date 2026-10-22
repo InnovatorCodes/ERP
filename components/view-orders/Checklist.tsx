@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   CheckCircle2,
   XCircle,
@@ -39,22 +40,22 @@ const statusConfig: Record<
 > = {
   passed: {
     icon: <CheckCircle2 size={18} />,
-    color: 'text-green-600 bg-green-100 border-green-200',
+    color: 'text-success bg-success-soft border-success/30',
     label: 'Pass',
   },
   failed: {
     icon: <XCircle size={18} />,
-    color: 'text-red-600 bg-red-100 border-red-200',
+    color: 'text-destructive bg-destructive-soft border-destructive/30',
     label: 'Fail',
   },
   pending: {
     icon: <AlertCircle size={18} />,
-    color: 'text-yellow-600 bg-yellow-100 border-yellow-200',
+    color: 'text-warning bg-warning-soft border-warning/30',
     label: 'Pending',
   },
   skipped: {
     icon: <SkipForward size={18} />,
-    color: 'text-gray-600 bg-gray-100 border-gray-200',
+    color: 'text-secondary-foreground bg-secondary border-border',
     label: 'Skip',
   },
 };
@@ -137,14 +138,14 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
         return (
           <div
             key={item.check_id}
-            className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm transition-all"
+            className="rounded-lg border bg-card p-4 shadow-sm"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               {/* Left Side: Check Details */}
               <div className="mb-3 sm:mb-0">
-                <p className="font-semibold text-gray-800">{item.name}</p>
+                <p className="font-medium text-foreground">{item.name}</p>
                 {item.failure_report && (
-                  <p className="text-sm text-red-500 mt-1">
+                  <p className="mt-1 text-sm text-destructive">
                     <strong>Failure Report:</strong> {item.failure_report}
                   </p>
                 )}
@@ -153,18 +154,20 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
               {/* Right Side: Status Actions */}
               <div className="flex items-center gap-2">
                 {isUpdating ? (
-                  <Loader2 className="animate-spin text-gray-400" />
+                  <Loader2 className="animate-spin text-muted-foreground" />
                 ) : (
                   (Object.keys(statusConfig) as CheckStatus[]).map(status => (
                     <button
                       key={status}
                       onClick={() => handleStatusUpdate(item.check_id, status)}
                       disabled={isUpdating}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                      aria-pressed={item.status === status}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         item.status === status
                           ? statusConfig[status].color
-                          : 'text-gray-500 bg-white hover:bg-gray-50'
-                      }`}
+                          : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
                       aria-label={`Set status to ${statusConfig[status].label}`}
                     >
                       {statusConfig[status].icon}
@@ -175,7 +178,7 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
               </div>
             </div>
             {item.updated_at && (
-              <p className="text-xs text-right text-gray-400 mt-2">
+              <p className="mt-2 text-right text-xs text-muted-foreground">
                 Last updated: {new Date(item.updated_at).toLocaleString()}
               </p>
             )}
@@ -216,7 +219,7 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
         </DialogContent>
       </Dialog>
 
-      <div className="mt-6 text-center">
+      <div className="mt-6 flex justify-end border-t pt-4">
         <Button
           onClick={() => {
             startTransition(async () => {
@@ -235,7 +238,7 @@ export function Checklist({ checklist, orderItemId, stageId, onProceed }: Checkl
               item => item.status === 'passed' || item.status === 'skipped',
             )
           }
-          className="px-8 py-3 text-lg font-semibold"
+          size="lg"
         >
           Proceed to Next Stage
         </Button>

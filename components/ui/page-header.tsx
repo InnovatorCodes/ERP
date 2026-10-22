@@ -8,6 +8,7 @@ interface PageHeaderProps {
     className?: string;
 }
 
+/** The title row every page starts with: title, one-line description, actions on the right. */
 export const PageHeader = ({
     title,
     description,
@@ -15,19 +16,19 @@ export const PageHeader = ({
     className,
 }: PageHeaderProps) => {
     return (
-        <div className={cn("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6", className)}>
+        <div className={cn("flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6", className)}>
             <div className="space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                     {title}
                 </h1>
                 {description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                         {description}
                     </p>
                 )}
             </div>
             {children && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {children}
                 </div>
             )}

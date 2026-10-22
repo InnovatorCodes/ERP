@@ -1,6 +1,7 @@
 import { DetailsFormProps, InputField, TextAreaField, ToggleGroupField, ComboboxField } from "../place-order/product-fields";
 import { ProductWithFiles } from "@/types/products";
 import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 
 export const SharedSofaDetailsForm: React.FC<DetailsFormProps<ProductWithFiles>> = ({ index, product, handleProductChange, disabled, baseName, nameError }) => {
     const [includeRecliner, setIncludeRecliner] = useState<boolean | null>(
@@ -103,9 +104,9 @@ export const SharedSofaDetailsForm: React.FC<DetailsFormProps<ProductWithFiles>>
                 <InputField name={name("1_seater_length")} label="1 Seater Length (in)" type="number" value={product['1_seater_length'] || ''} disabled={disabled} onChange={(e) => handleProductChange(index, "1_seater_length", Number(e.target.value))} required/>
             )}
             {product.customization && (
-                <span className="text-lg font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded-md h-min w-min col-span-2">
-                    Customized
-                </span>
+                <div className="flex items-end md:col-span-2">
+                    <Badge variant="accent">Customised model</Badge>
+                </div>
             )}
             <TextAreaField name={name("description")} label="Description" value={product.description || ''} disabled={disabled} onChange={(e) => handleProductChange(index, "description", e.target.value)} />
             <ToggleGroupField 

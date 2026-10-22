@@ -1,38 +1,31 @@
 import React from 'react';
-import { ArrowUpRight, LucideIcon } from 'lucide-react';
-
-// --- Type Definitions ---
+import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
   title: string;
   value: string;
-  change?: string;
   Icon: LucideIcon;
-  color: string;
-  bgColor: string;
+  /** "alert" highlights a number that needs attention (e.g. overdue orders above zero). */
+  tone?: 'default' | 'alert';
+  hint?: string;
 }
 
-// KPI Card Component
-const KpiCard: React.FC<KpiCardProps> = ({ title, value, change, Icon, color, bgColor }) => (
-  <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-    <div className="flex justify-between items-start">
-      <div className="flex flex-col">
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
-      </div>
-      <div className={`p-3 rounded-full ${bgColor}`}>
-        <Icon className={`h-6 w-6 ${color}`} />
+const KpiCard: React.FC<KpiCardProps> = ({ title, value, Icon, tone = 'default', hint }) => (
+  <div className="rounded-xl border bg-card p-5 shadow-sm">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <div className={cn(
+        "flex size-9 items-center justify-center rounded-lg",
+        tone === 'alert' ? "bg-destructive-soft text-destructive" : "bg-accent text-accent-foreground"
+      )}>
+        <Icon className="size-[18px]" />
       </div>
     </div>
-    {change && (
-      <div className="flex items-center mt-4 text-sm">
-        <span className={`flex items-center ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-          <ArrowUpRight size={16} className={!change.startsWith('+') ? 'rotate-90' : ''} />
-          {change}
-        </span>
-        <span className="text-gray-500 ml-2">vs. last period</span>
-      </div>
-    )}
+    <p className={cn("mt-2 text-3xl font-semibold tracking-tight", tone === 'alert' ? "text-destructive" : "text-foreground")}>
+      {value}
+    </p>
+    {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
   </div>
 );
 

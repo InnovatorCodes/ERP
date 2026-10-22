@@ -1,53 +1,48 @@
 "use client";
 import React from 'react';
-import { CustomerSearchResult } from '@/types/customers';
 import { Briefcase, MapPin } from 'lucide-react';
-import Image from 'next/image';
+import { CustomerSearchResult } from '@/types/customers';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface CustomerCardProps {
-    customer: CustomerSearchResult;
+    customer: CustomerSearchResult & { status?: string };
+    selected?: boolean;
     onSelect: () => void;
 }
 
-const CustomerCard: React.FC<CustomerCardProps> = ({ customer, onSelect }) => {
-    return (
-        <div 
-            onClick={onSelect}
-            className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer border-l-4 border-transparent hover:border-red-500"
-        >
-            <div className="p-5">
-                <div className="flex items-center">
-                    {customer.avatar ? (
-                        <Image width={64} height={64} className="h-16 w-16 rounded-full object-cover" src={customer.avatar} alt={`${customer.name}'s avatar`} />
-                    ) : (
-                        <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xl font-semibold">
-                            {customer.name ? customer.name.charAt(0).toUpperCase() : 'N/A'}
-                        </div>
-                    )}
-                    <div className="ml-4">
-                        <p className="text-lg font-bold text-gray-900">{customer.name}</p>
-                        {customer.company && (
-                            <p className="text-sm text-gray-600 flex items-center">
-                                <Briefcase size={14} className="mr-1.5 text-gray-400" />
-                                {customer.company}
-                            </p>
-                        )}
-                    </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="flex items-center text-gray-500">
-                            <MapPin size={14} className="mr-1.5" />
-                            {customer.address}
-                        </span>
-                        <span className={`px-2.5 py-1 font-semibold rounded-full text-xs flex items-center gap-1
-                        `}>
-                        </span>
-                    </div>
-                </div>
+const CustomerCard: React.FC<CustomerCardProps> = ({ customer, selected = false, onSelect }) => (
+    <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className={cn(
+            "w-full rounded-xl border bg-card p-5 text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            selected && "border-primary ring-1 ring-primary"
+        )}
+    >
+        <div className="flex items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-base font-semibold text-accent-foreground">
+                {customer.name ? customer.name.charAt(0).toUpperCase() : '?'}
             </div>
+            <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-foreground">{customer.name}</p>
+                {customer.company && (
+                    <p className="flex items-center gap-1.5 truncate text-sm text-muted-foreground">
+                        <Briefcase className="size-3.5 shrink-0" />
+                        {customer.company}
+                    </p>
+                )}
+            </div>
+            {customer.status && (
+                <Badge variant="secondary" className="uppercase tracking-wide">{customer.status}</Badge>
+            )}
         </div>
-    );
-};
+        <p className="mt-4 flex items-start gap-1.5 border-t pt-3 text-sm text-muted-foreground">
+            <MapPin className="mt-0.5 size-3.5 shrink-0" />
+            <span className="line-clamp-2">{customer.address}</span>
+        </p>
+    </button>
+);
 
 export default CustomerCard;

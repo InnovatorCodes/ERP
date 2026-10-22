@@ -4,33 +4,30 @@ import { useState } from 'react';
 import { addEmployeeAction } from '../actions/add-employee';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
+import { EMPLOYEE_ROLES, type EmployeeRole } from '@/components/employee-card';
 
-const roles = [
-  'admin',
-  'manager',
-  'production manager',
-  'sales coordinator',
-] as const;
-
-type EmployeeRole = (typeof roles)[number];
+const emptyForm = {
+  email: '',
+  password: '',
+  fullName: '',
+  role: 'production manager' as EmployeeRole,
+};
 
 export default function AddEmployeeForm({
   onSuccess,
 }: {
   onSuccess?: () => void;
 }) {
-  const [form, setForm] = useState<{
-    email: string;
-    password: string;
-    fullName: string;
-    role: EmployeeRole;
-  }>({
-    email: '',
-    password: '',
-    fullName: '',
-    role: 'production manager',
-  });
+  const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,12 +38,7 @@ export default function AddEmployeeForm({
       const result = await addEmployeeAction(form);
       if (result.success) {
         toast.success(result.message);
-        setForm({
-          email: '',
-          password: '',
-          fullName: '',
-          role: 'production manager',
-        });
+        setForm(emptyForm);
         onSuccess?.();
       } else {
         toast.error(result.message || 'Failed to add employee');
@@ -60,55 +52,65 @@ export default function AddEmployeeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-1">Full Name</label>
+      <div className="space-y-1.5">
+        <Label htmlFor="employee-name">Full name</Label>
         <Input
+          id="employee-name"
           type="text"
+          autoComplete="off"
           value={form.fullName}
           onChange={(e) => setForm({ ...form, fullName: e.target.value })}
           required
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Email</label>
+      <div className="space-y-1.5">
+        <Label htmlFor="employee-email">Email</Label>
         <Input
+          id="employee-email"
           type="email"
+          autoComplete="off"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           required
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Password</label>
+      <div className="space-y-1.5">
+        <Label htmlFor="employee-password">Password</Label>
         <Input
+          id="employee-password"
           type="password"
+          autoComplete="new-password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           minLength={8}
           required
         />
+        <p className="text-xs text-muted-foreground">At least 8 characters.</p>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Role</label>
-        <select
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value as EmployeeRole })}
-          className="w-full border rounded p-2"
-        >
-          {roles.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
+      <div className="space-y-1.5">
+        <Label htmlFor="employee-role">Role</Label>
+        <Select value={form.role} onValueChange={(value) => setForm({ ...form, role: value as EmployeeRole })}>
+          <SelectTrigger id="employee-role" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EMPLOYEE_ROLES.map((role) => (
+              <SelectItem key={role.value} value={role.value}>
+                {role.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <Button type="submit" disabled={loading}>
-        {loading ? 'Adding...' : 'Add Employee'}
-      </Button>
+      <div className="flex justify-end pt-2">
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Adding…' : 'Add employee'}
+        </Button>
+      </div>
     </form>
   );
 }

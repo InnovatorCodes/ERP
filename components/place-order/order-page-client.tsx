@@ -1,13 +1,17 @@
 'use client';
-import React, { useState, useActionState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Search } from 'lucide-react';
+import React, { useState, useActionState, useEffect, useCallback } from 'react';
+import { Plus, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { Product, ProductWithFiles } from '@/types/products';
 import { Customer } from '@/types/customers';
 import { searchCustomers } from '@/actions/search-customers';
 import getProductDetails from '@/actions/get-product-details';
 import { submitOrder } from '@/actions/submit-order';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { SearchInput } from '@/components/ui/search-input';
+import { PageContainer } from '@/components/ui/page-container';
+import { PageHeader } from '@/components/ui/page-header';
+import { cn } from '@/lib/utils';
 import { ProductEntryForm } from './product-entry-form';
 
 // Main type 
@@ -116,45 +120,54 @@ const PlaceOrderPage = () => {
     const removeItem = (index: number) => setOrderItems(orderItems.filter((_, i) => i !== index));
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-full font-sans">
-            <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold text-gray-900 mb-6">Place New Order</h1>
-                <form action={formAction} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                    {selectedCustomer && <input type="hidden" name="selectedCustomerId" value={selectedCustomer.id} />}
-                    <input type="hidden" name="totalProducts" value={orderItems.length} />
-                    <div className="lg:col-span-2 space-y-6">
-                        {orderItems.map((item, index) => (
-                            <ProductEntryForm
-                                key={`${item.uniqueId}-${item.id || ''}`}
-                                item={item} index={index}
-                                onItemChange={handleItemChange}
-                                onDetailsChange={handleDetailsChange}
-                                onProductSelect={handleProductSelect}
-                                onRemove={removeItem}
-                                isOnlyItem={orderItems.length === 1}
-                            />
-                        ))}
-                        <button type="button" onClick={addNewItem} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 text-gray-500 font-semibold rounded-lg hover:bg-gray-200 hover:border-gray-400 transition">
-                            <Plus size={20} /> Add Another Product
-                        </button>
-                    </div>
-                    <div className="lg:col-span-1 space-y-6 sticky top-6">
-                        <CustomerSelector customer={selectedCustomer} onSelect={setSelectedCustomer} />
-                        <OrderSummary
-                            itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)}
-                            problems={selectedCustomer ? itemProblems : ['Select a customer.', ...itemProblems]}
-                            disabled={hasNameError || !selectedCustomer || itemProblems.length > 0}
+        <PageContainer>
+            <PageHeader title="Place order" description="Choose a customer, then add each product with its due date." />
+            <form action={formAction} className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+                {selectedCustomer && <input type="hidden" name="selectedCustomerId" value={selectedCustomer.id} />}
+                <input type="hidden" name="totalProducts" value={orderItems.length} />
+                <div className="space-y-4 lg:col-span-2">
+                    {orderItems.map((item, index) => (
+                        <ProductEntryForm
+                            key={`${item.uniqueId}-${item.id || ''}`}
+                            item={item} index={index}
+                            onItemChange={handleItemChange}
+                            onDetailsChange={handleDetailsChange}
+                            onProductSelect={handleProductSelect}
+                            onRemove={removeItem}
+                            isOnlyItem={orderItems.length === 1}
                         />
-                        {state?.message && (
-                             <div className={`flex items-start gap-3 p-4 rounded-lg ${state.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                 <CheckCircle className="h-5 w-5 flex-shrink-0" />
-                                 <p className="text-sm font-medium">{state.message}</p>
-                             </div>
-                        )}
-                    </div>
-                </form>
-            </div>
-        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addNewItem}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                        <Plus className="size-4" /> Add another product
+                    </button>
+                </div>
+                <div className="space-y-4 lg:sticky lg:top-6">
+                    <CustomerSelector customer={selectedCustomer} onSelect={setSelectedCustomer} />
+                    <OrderSummary
+                        itemCount={orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+                        lineCount={orderItems.length}
+                        problems={selectedCustomer ? itemProblems : ['Select a customer.', ...itemProblems]}
+                        disabled={hasNameError || !selectedCustomer || itemProblems.length > 0}
+                    />
+                    {state?.message && (
+                        <div
+                            role={state.success ? 'status' : 'alert'}
+                            className={cn(
+                                "flex items-start gap-3 rounded-xl border p-4 text-sm",
+                                state.success ? "border-success/20 bg-success-soft text-success" : "border-destructive/20 bg-destructive-soft text-destructive"
+                            )}
+                        >
+                            {state.success ? <CheckCircle2 className="size-5 shrink-0" /> : <AlertCircle className="size-5 shrink-0" />}
+                            <p className="font-medium">{state.message}</p>
+                        </div>
+                    )}
+                </div>
+            </form>
+        </PageContainer>
     );
 };
 
@@ -163,7 +176,6 @@ const CustomerSelector = ({ customer, onSelect }: { customer: Customer | null, o
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Customer[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const searchRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (searchQuery.trim().length < 2) {
@@ -177,13 +189,13 @@ const CustomerSelector = ({ customer, onSelect }: { customer: Customer | null, o
             const results = await searchCustomers(searchQuery);
             if (cancelled) return;
             const formattedResults: Customer[] = results.map(c => ({
-                id: c.id, name: c.customer_name, email: c.email, company: c.company || 'N/A', address: c.address, phone: c.mobile_number, customerType: c.customer_type,
-                dateAdded: new Date(c.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                avatar: '', totalOrders: 0, totalSpend: 0, lastOrder: 'N/A', status: 'Active'
+                id: c.id, name: c.customer_name, email: c.email, company: c.company || '', address: c.address, phone: c.mobile_number, customerType: c.customer_type,
+                dateAdded: c.created_at,
+                avatar: '', totalOrders: 0, totalSpend: 0, lastOrder: '', status: 'Active'
             }));
             setSearchResults(formattedResults);
             setIsLoading(false);
-        }, 500);
+        }, 400);
         return () => {
             cancelled = true;
             clearTimeout(timer);
@@ -197,71 +209,92 @@ const CustomerSelector = ({ customer, onSelect }: { customer: Customer | null, o
         setSearchResults([]);
     };
 
+    const showNoResults = !isLoading && searchQuery.trim().length >= 2 && searchResults.length === 0;
+
     return (
-        <div className="bg-white p-6 rounded-xl shadow-md" ref={searchRef}>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-xl text-gray-800">Customer</h3>
-                {customer && !isSearching && (<button type='button' onClick={() => { onSelect(null); setIsSearching(true); }} className="text-red-600 font-semibold text-sm">Change</button>)}
+        <section className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold text-foreground">Customer</h2>
+                {customer && !isSearching && (
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => { onSelect(null); setIsSearching(true); }}>
+                        Change
+                    </Button>
+                )}
             </div>
 
             {isSearching ? (
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <Input type="text" placeholder="Search by name, phone..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 w-full" autoFocus />
-                    {isLoading && <p className="text-sm text-gray-500 mt-2">Searching...</p>}
+                    <SearchInput
+                        placeholder="Search by name, phone or email..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                    />
+                    {isLoading && <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> Searching...</p>}
+                    {showNoResults && <p className="mt-2 text-sm text-muted-foreground">No customers found. Add them on the Customers page first.</p>}
                     {searchResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
                             {searchResults.map((result) => (
-                                <div key={result.id} onClick={() => handleSelectCustomer(result)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer">
-                                    <div className="w-10 h-10 rounded-full mr-3 bg-gray-200 flex items-center justify-center text-gray-600 font-semibold">
-                                        {result.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-800">{result.name}</p>
-                                        <p className="text-sm text-gray-500">{result.phone}</p>
-                                    </div>
-                                </div>
+                                <li key={result.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSelectCustomer(result)}
+                                        className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                                    >
+                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent font-semibold text-accent-foreground">
+                                            {result.name.charAt(0).toUpperCase()}
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="block truncate font-medium text-foreground">{result.name}</span>
+                                            <span className="block truncate text-xs text-muted-foreground">{[result.company, result.phone].filter(Boolean).join(' · ')}</span>
+                                        </span>
+                                    </button>
+                                </li>
                             ))}
-                        </div>
+                        </ul>
                     )}
                 </div>
             ) : customer ? (
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                    <div className="w-12 h-12 rounded-full mr-4 bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xl">
+                <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-semibold text-accent-foreground">
                         {customer.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                        <p className="font-semibold text-gray-800">{customer.name}</p>
-                        <p className="text-sm text-gray-500">{customer.company}</p>
+                    </span>
+                    <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{customer.name}</p>
+                        <p className="truncate text-sm text-muted-foreground">{customer.company || customer.email}</p>
                     </div>
                 </div>
             ) : null}
-        </div>
+        </section>
     );
 };
 
 const SubmitButton = ({ disabled }: { disabled: boolean }) => {
     const { pending } = useFormStatus();
     return (
-        <button type="submit" disabled={pending || disabled} className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-400 disabled:cursor-not-allowed">
-            {pending ? (<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>Placing Order...</>) : (<><CheckCircle size={20} />Confirm & Place Order</>)}
-        </button>
+        <Button type="submit" size="lg" disabled={pending || disabled} className="mt-5 w-full">
+            {pending ? <><Loader2 className="animate-spin" /> Placing order...</> : <><CheckCircle2 /> Place order</>}
+        </Button>
     );
 }
 
-const OrderSummary = ({ itemCount, problems, disabled }: { itemCount: number, problems: string[], disabled: boolean }) => (
-    <div className="bg-white p-6 rounded-xl shadow-md">
-        <h3 className="font-bold text-xl mb-4 text-gray-800">Order Summary</h3>
-        <div className="space-y-2 text-gray-600">
-            <div className="flex justify-between"><p>Total Items</p><p className="font-medium">{itemCount}</p></div>
-        </div>
+const OrderSummary = ({ itemCount, lineCount, problems, disabled }: { itemCount: number, lineCount: number, problems: string[], disabled: boolean }) => (
+    <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="mb-3 font-semibold text-foreground">Summary</h2>
+        <dl className="space-y-2 text-sm">
+            <div className="flex justify-between"><dt className="text-muted-foreground">Products</dt><dd className="font-medium tabular-nums">{lineCount}</dd></div>
+            <div className="flex justify-between"><dt className="text-muted-foreground">Total quantity</dt><dd className="font-medium tabular-nums">{itemCount}</dd></div>
+        </dl>
         {problems.length > 0 && (
-            <ul className="mt-4 space-y-1 text-sm text-red-700 list-disc pl-5">
-                {problems.map(problem => <li key={problem}>{problem}</li>)}
-            </ul>
+            <div className="mt-4 rounded-lg bg-warning-soft p-3">
+                <p className="mb-1 text-sm font-medium text-warning">Before placing the order:</p>
+                <ul className="list-disc space-y-0.5 pl-5 text-sm text-foreground">
+                    {problems.map(problem => <li key={problem}>{problem}</li>)}
+                </ul>
+            </div>
         )}
         <SubmitButton disabled={disabled} />
-    </div>
+    </section>
 );
 
 export default PlaceOrderPage;

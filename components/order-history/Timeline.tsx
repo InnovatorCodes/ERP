@@ -31,15 +31,15 @@ export default function Timeline({ steps = [] }: TimelineProps) {
   };
 
   return (
-    <ol className="relative border-s-2 border-gray-100 ml-2">
+    <ol className="relative border-s-2 border-border ml-2">
       {steps.map((s, i) => (
         <li key={i} className="mb-4 ms-4">
-          <span className="absolute -start-3.5 flex items-center justify-center w-7 h-7 rounded-full bg-white border shadow-sm">
+          <span className="absolute -start-3.5 flex items-center justify-center w-7 h-7 rounded-full bg-card border shadow-sm">
             {iconFor(s.key)}
           </span>
           <div className="flex items-center gap-2 text-sm">
             <span className="font-medium">{s.label}</span>
-            <span className="text-gray-400">• {s.date}</span>
+            <span className="text-muted-foreground">• {s.date}</span>
           </div>
         </li>
       ))}

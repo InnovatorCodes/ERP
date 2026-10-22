@@ -1,19 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
-  productType: "sofa" | "bed";
-  filters?: Record<string, string>;
+  className?: string;
 }
 
-export function SearchBar({
-  onSearch,
-  productType,
-  filters,
-}: SearchBarProps) {
+/** Product search box; reports the query 300 ms after typing stops. */
+export function SearchBar({ onSearch, className }: SearchBarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const isInitialMount = useRef(true);
 
@@ -22,28 +18,16 @@ export function SearchBar({
       isInitialMount.current = false;
       return;
     }
-
-    const handler = setTimeout(() => {
-      onSearch(searchQuery);
-    }, 300); // 300ms debounce
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchQuery, onSearch, productType, filters]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
+    const handler = setTimeout(() => onSearch(searchQuery), 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, onSearch]);
 
   return (
-    <div className="relative">
-      <Input
-        type="text"
-        placeholder="Search by model name or ID..."
-        value={searchQuery}
-        onChange={handleInputChange}
-      />
-    </div>
+    <SearchInput
+      placeholder="Search by model name..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className={className}
+    />
   );
 }

@@ -1,64 +1,45 @@
 import React from 'react';
-import { LucideIcon, Scissors, Hammer, Package, CheckCircle, Sofa } from 'lucide-react';
+import { Factory } from 'lucide-react';
 import { STAGE_CONFIG } from '@/components/view-orders/data';
-import { Stage } from '@/components/view-orders/types';
-
-// --- Type Definitions ---
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface ProductionPipelineProps {
+  /** Active order items per stage, keyed by stage name (e.g. "Carpentry"). */
   data: Partial<Record<string, number>>;
 }
 
-const STAGE_ICONS: Record<Stage, LucideIcon> = {
-  carpentry: Hammer,
-  marking_cutting: Scissors,
-  stitching: Sofa,
-  cladding: Sofa,
-  final_qc: CheckCircle,
-  packing_loading: Package,
-};
+// Stage order and colours come from STAGE_CONFIG (labels match the database stage names).
+const STAGES = Object.values(STAGE_CONFIG).filter((stage) => !['Out for Delivery', 'Delivered'].includes(stage.label));
 
-// Create a reverse mapping from label to Stage key
-const stageLabelToKey: Record<string, Stage> = Object.entries(STAGE_CONFIG).reduce((acc, [key, value]) => {
-  acc[value.label] = key as Stage;
-  return acc;
-}, {} as Record<string, Stage>);
-
-// Production Pipeline Component
 const ProductionPipeline: React.FC<ProductionPipelineProps> = ({ data }) => {
-  const pipelineData = Object.entries(data).map(([stageLabel, count]) => {
-    const stageKey = stageLabelToKey[stageLabel];
-    return {
-      stage: stageLabel,
-      count,
-      Icon: STAGE_ICONS[stageKey],
-      color: STAGE_CONFIG[stageKey]?.color, // Use optional chaining in case stageKey is not found
-    };
-  });
-  
-  const totalInPipeline = pipelineData.reduce((sum, item) => sum + (item.count || 0), 0);
+  const rows = STAGES.map((stage) => ({ ...stage, count: data[stage.label] ?? 0 }));
+  const largest = Math.max(1, ...rows.map((row) => row.count));
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md h-full">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Production Pipeline</h3>
-      <div className="space-y-3">
-        {pipelineData.map((item) => (
-          <div key={item.stage} className="flex items-center">
-            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-gray-100 mr-4">
-              {item.Icon && <item.Icon className="h-5 w-5 text-gray-600" />}
-            </div>
-            <div className="flex-grow">
-              <div className="flex justify-between items-center mb-1">
-                <p className="font-semibold text-gray-700">{item.stage}</p>
-                <p className="text-sm font-bold text-gray-800">{item.count} units</p>
+    <div className="h-full rounded-xl border bg-card p-5 shadow-sm">
+      <h2 className="font-semibold text-foreground">Production pipeline</h2>
+      <p className="mb-4 text-sm text-muted-foreground">Order items currently active in each stage</p>
+      {total === 0 ? (
+        <EmptyState icon={Factory} title="Nothing in production" className="border-0 py-12" />
+      ) : (
+        <ul className="space-y-4">
+          {rows.map((row) => (
+            <li key={row.label}>
+              <div className="mb-1.5 flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2 text-foreground">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: row.color }} />
+                  {row.label}
+                </span>
+                <span className="font-medium tabular-nums text-foreground">{row.count}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-blue-500" style={{ width: `${((item.count || 0) / totalInPipeline) * 100}%`, height: '100%', borderRadius: '9999px', backgroundColor: item.color }}></div>
+              <div className="h-2 w-full rounded-full bg-muted">
+                <div className="h-full rounded-full" style={{ width: `${(row.count / largest) * 100}%`, backgroundColor: row.color }} />
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

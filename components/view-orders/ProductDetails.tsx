@@ -173,8 +173,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
     if (key === 'created_at' || key === 'product_type') {
       return (
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-600">{label}</span>
-          <span className="text-gray-800">
+          <span className="font-semibold text-muted-foreground">{label}</span>
+          <span className="text-foreground">
             {isDateKey(key) && typeof value === 'string'
               ? formatReadableDate(value)
               : String(value)}
@@ -198,8 +198,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
       } else {
         return (
           <div className="flex flex-col">
-            <span className="font-semibold text-gray-600">{label}</span>
-            <span className="text-gray-800">
+            <span className="font-semibold text-muted-foreground">{label}</span>
+            <span className="text-foreground">
               {String(value)}
             </span>
           </div>
@@ -211,8 +211,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
     if (key === 'customization') {
       return (
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-600">{label}</span>
-          <span className="text-gray-800">
+          <span className="font-semibold text-muted-foreground">{label}</span>
+          <span className="text-foreground">
             {value ? 'Yes' : 'No'}
           </span>
         </div>
@@ -228,8 +228,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ details, productType, o
     if (!isEditing) {
       return (
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-600">{label}</span>
-          <span className="text-gray-800">
+          <span className="font-semibold text-muted-foreground">{label}</span>
+          <span className="text-foreground">
             {isDateKey(key) && typeof value === 'string'
               ? formatReadableDate(value)
               : typeof value === 'boolean'

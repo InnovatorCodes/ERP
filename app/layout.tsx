@@ -31,11 +31,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-gray-50 dark:bg-zinc-900 overflow-hidden text-sm sm:text-base`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-background text-foreground overflow-hidden text-sm`}
       >
         <UserProvider>
           <AppShell>{children}</AppShell>
-          <Toaster position="top-right" />
+          <Toaster position="top-right" richColors closeButton />
         </UserProvider>
       </body>
     </html>

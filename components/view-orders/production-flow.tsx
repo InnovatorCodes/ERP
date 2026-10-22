@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FiLock } from 'react-icons/fi';
+import { THEME_COLORS } from '@/lib/theme-colors';
 
 // --- Type Definitions ---
 type NodeStatus = 'pending' | 'active' | 'completed';
@@ -28,21 +29,21 @@ type NodeData = {
 // --- Status-based Styling ---
 const statusStyles: Record<NodeStatus, React.CSSProperties> = {
   pending: {
-    background: '#F3F4F6', // gray-100
-    border: '1px solid #D1D5DB', // gray-300
-    color: '#6B7280', // gray-500
+    background: 'var(--muted)',
+    border: '1px solid var(--border)',
+    color: 'var(--muted-foreground)',
     cursor: 'not-allowed',
   },
   active: {
-    background: '#DBEAFE', // blue-100
-    border: '1px solid #60A5FA', // blue-400
-    color: '#1E40AF', // blue-800
+    background: 'var(--accent)',
+    border: '1px solid var(--primary)',
+    color: 'var(--accent-foreground)',
     cursor: 'pointer',
   },
   completed: {
-    background: '#D1FAE5', // green-100
-    border: '1px solid #34D399', // green-400
-    color: '#065F46', // green-800
+    background: 'var(--success-soft)',
+    border: '1px solid var(--success)',
+    color: 'var(--success)',
     cursor: 'pointer',
   },
 };
@@ -100,8 +101,8 @@ const initialEdges: Edge[] = [
 
 // --- Loading Spinner ---
 const Spinner = () => (
-  <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-20">
-    <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>
+  <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/60">
+    <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
   </div>
 );
 
@@ -145,7 +146,7 @@ export default function Diagram({
         return {
           ...edge,
           style: {
-            stroke: isCompleted ? '#10B981' : '#D1D5DB', // green-500 or gray-300
+            stroke: isCompleted ? THEME_COLORS.success : THEME_COLORS.border,
             strokeWidth: 2,
           },
           animated: isCompleted,
@@ -182,7 +183,7 @@ export default function Diagram({
           onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           fitView
-          className="bg-gradient-to-br from-gray-50 to-gray-100"
+          className="bg-muted/40"
           proOptions={{ hideAttribution: true }}
           panOnDrag={false}
           zoomOnScroll={false}

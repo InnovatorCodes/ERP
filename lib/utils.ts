@@ -33,7 +33,12 @@ export function formatDisplayDate(value: string | Date | null | undefined): stri
     return new Intl.DateTimeFormat('en-IN', { ...options, timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day)));
   }
 
-  const date = new Date(value);
+  // Postgres timestamps cast to text ("2026-10-21 10:15:00.12+00") aren't
+  // ISO 8601; normalise them so every browser parses them the same way.
+  const normalised = typeof value === 'string'
+    ? value.replace(/^(\d{4}-\d{2}-\d{2}) (\d)/, '$1T$2').replace(/([+-]\d{2})$/, '$1:00')
+    : value;
+  const date = new Date(normalised);
   if (isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('en-IN', { ...options, timeZone: BUSINESS_TIME_ZONE }).format(date);
 }

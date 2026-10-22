@@ -1,8 +1,9 @@
 'use client';
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { UploadCloud, X } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
+
 export const ImageUploadDisplayField = ({
     label,
     name,
@@ -20,7 +21,6 @@ export const ImageUploadDisplayField = ({
 }) => {
     const [preview, setPreview] = useState<string | null>(null);
     const [isRemoved, setIsRemoved] = useState(false);
-    const [isLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -55,15 +55,25 @@ export const ImageUploadDisplayField = ({
     };
 
     return (
-        <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <div>
+            <span className="mb-1.5 block text-sm font-medium text-foreground">{label}</span>
             <div
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                aria-label={preview ? `Replace ${label.toLowerCase()}` : `Upload ${label.toLowerCase()}`}
+                aria-disabled={disabled}
                 onClick={() => !disabled && inputRef.current?.click()}
+                onKeyDown={(e) => {
+                    if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        inputRef.current?.click();
+                    }
+                }}
                 className={cn(
-                    "w-full border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 transition-colors",
+                    "relative flex h-48 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     disabled
-                        ? "bg-gray-200 cursor-not-allowed"
-                        : "border-gray-300 hover:border-red-400 hover:bg-red-50 cursor-pointer"
+                        ? "cursor-not-allowed bg-muted"
+                        : "cursor-pointer bg-card hover:border-primary/50 hover:bg-accent/50"
                 )}
             >
                 <input
@@ -81,28 +91,25 @@ export const ImageUploadDisplayField = ({
                     name={`${name}_from_form`}
                     value={isRemoved ? 'null' : (dbImageUrl || '')}
                 />
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-48">
-                        <p>Loading...</p>
-                    </div>
-                ) : preview ? (
-                    <div className="relative w-full h-48">
-                        <Image src={preview} alt="Preview" layout="fill" objectFit="contain" className="rounded-md" />
+                {preview ? (
+                    <>
+                        <Image src={preview} alt={label} fill sizes="400px" className="rounded-md object-contain p-2" />
                         {!disabled && (
                             <button
                                 type="button"
                                 onClick={handleRemove}
-                                className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md text-gray-600 hover:text-red-600"
+                                aria-label={`Remove ${label.toLowerCase()}`}
+                                className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition-colors hover:text-destructive"
                             >
-                                <X size={16} />
+                                <X className="size-4" />
                             </button>
                         )}
-                    </div>
+                    </>
                 ) : (
                     <>
-                        <UploadCloud size={32} className="mb-2" />
-                        <span>Click to upload an image</span>
-                        <span className="text-xs">PNG, JPG, GIF up to 10MB</span>
+                        <ImagePlus className="mb-2 size-7" />
+                        <span className="font-medium text-foreground">{disabled ? 'No image' : 'Click to upload'}</span>
+                        {!disabled && <span className="mt-0.5 text-xs">PNG, JPG or GIF, up to 10 MB</span>}
                     </>
                 )}
             </div>

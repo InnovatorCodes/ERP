@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Filter, Search, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { DateRange } from "react-day-picker";
 import { addDays, format } from "date-fns";
 
@@ -20,14 +21,13 @@ export type Filters = {
 
 type FiltersBarProps = {
   onApplyFilters: (filters: Filters) => void;
-  count: number;
   /** Applied filters and sort, passed to the export so it matches the table. */
   exportParams: Record<string, string | undefined>;
 };
 
 // Order history only lists delivered orders, so the only filters are text
 // search and the delivery date range.
-export default function FiltersBar({ onApplyFilters, count, exportParams }: FiltersBarProps) {
+export default function FiltersBar({ onApplyFilters, exportParams }: FiltersBarProps) {
   const [q, setQ] = useState("");
   const [date, setDate] = React.useState<DateRange | undefined>();
 
@@ -54,17 +54,13 @@ export default function FiltersBar({ onApplyFilters, count, exportParams }: Filt
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-3 flex items-center gap-3">
-      {/* Search Input */}
-      <div className="flex-grow flex items-center gap-2 border rounded-lg px-3 py-2">
-        <Search className="w-4 h-4 text-gray-400" />
-        <input
-          value={q}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full text-sm focus:outline-none bg-transparent"
-          placeholder="Search order ID, customer, product..."
-        />
-      </div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <SearchInput
+        value={q}
+        onChange={(e) => handleSearchChange(e.target.value)}
+        placeholder="Search by order ID, customer or product..."
+        className="flex-1"
+      />
 
       <ExportButton
         source="order-history"
@@ -81,9 +77,9 @@ export default function FiltersBar({ onApplyFilters, count, exportParams }: Filt
       />
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Filter className="w-4 h-4" />
-            Filters
+          <Button variant="outline" className="bg-card">
+            <CalendarIcon />
+            {date?.from ? 'Delivery dates set' : 'Delivery dates'}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-4" align="end">
@@ -147,7 +143,6 @@ export default function FiltersBar({ onApplyFilters, count, exportParams }: Filt
           </div>
         </PopoverContent>
       </Popover>
-      <div className="text-sm text-gray-500">{count} results</div>
     </div>
   );
 }

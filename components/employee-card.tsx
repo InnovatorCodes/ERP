@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -13,6 +13,15 @@ import {
 } from "@/components/ui/select";
 import { updateEmployeeRole } from "@/actions/update-employee-role";
 
+export const EMPLOYEE_ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "production manager", label: "Production Manager" },
+  { value: "sales coordinator", label: "Sales Coordinator" },
+] as const;
+
+export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number]["value"];
+
 interface Employee {
   id: string;
   role: string;
@@ -20,10 +29,21 @@ interface Employee {
   email: string | null;
 }
 
+function initials(name: string) {
+  return name
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
+}
+
 export function EmployeeCard({ employee }: { employee: Employee }) {
   const [savedRole, setSavedRole] = useState(employee.role);
   const [role, setRole] = useState(employee.role);
   const [isUpdating, setIsUpdating] = useState(false);
+  const displayName = employee.full_name || employee.email || "Unnamed employee";
+  const roleLabel = EMPLOYEE_ROLES.find((r) => r.value === savedRole)?.label ?? savedRole;
 
   const handleUpdateRole = async () => {
     setIsUpdating(true);
@@ -41,33 +61,34 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{employee.full_name || employee.email || "Unnamed employee"}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600">{employee.email}</p>
-        <div className="flex items-center space-x-2">
-          <Select value={role} onValueChange={setRole}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
-              <SelectItem value="production manager">
-                Production Manager
-              </SelectItem>
-              <SelectItem value="sales coordinator">
-                Sales Coordinator
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={handleUpdateRole} disabled={isUpdating || role === savedRole}>
-            {isUpdating ? "Updating..." : "Update Role"}
-          </Button>
+    <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
+          {initials(displayName)}
         </div>
-      </CardContent>
-    </Card>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-foreground">{displayName}</p>
+          {employee.email && <p className="truncate text-xs text-muted-foreground">{employee.email}</p>}
+        </div>
+        <Badge variant={savedRole === "admin" ? "accent" : "secondary"}>{roleLabel}</Badge>
+      </div>
+      <div className="flex items-center gap-2 border-t pt-4">
+        <Select value={role} onValueChange={setRole}>
+          <SelectTrigger className="flex-1" aria-label={`Role for ${displayName}`}>
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            {EMPLOYEE_ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={handleUpdateRole} disabled={isUpdating || role === savedRole}>
+          {isUpdating ? "Saving…" : "Save role"}
+        </Button>
+      </div>
+    </div>
   );
 }

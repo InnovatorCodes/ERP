@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Order, View, Stage, Priority } from './types';
 import Header from './Header';
@@ -9,7 +10,10 @@ import KanbanBoard from './KanbanBoard';
 import OrderModal from './OrderModal';
 import { searchOrderItems } from '@/actions/search-order-items';
 import { updateOrderPriority } from '@/actions/update-order-priority';
-import { Button } from '../ui/button';
+import { PageContainer } from '@/components/ui/page-container';
+import { PaginationBar } from '@/components/ui/pagination-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
 
 interface ViewOrdersClientProps {
   initialOrders: Order[];
@@ -98,7 +102,7 @@ const ViewOrdersClient: React.FC<ViewOrdersClientProps> = ({ initialOrders, tota
   };
 
   return (
-    <div className="bg-white min-h-screen text-black font-sans antialiased">
+    <PageContainer fullWidth>
       <Header
         view={view}
         setView={changeView}
@@ -109,47 +113,35 @@ const ViewOrdersClient: React.FC<ViewOrdersClientProps> = ({ initialOrders, tota
         sortConfig={sortConfig}
         setSortConfig={changeSort}
       />
-      <main>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -10, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {view === 'list' && (
-              <div className="p-6 pb-20">
-                <OrderTable orders={orders} onOrderSelect={setSelectedOrder} onOrdersChanged={reload} />
-                {orders.length === 0 && !loading && (
-                  <p className="text-center text-gray-500 py-12">No orders match the current search and filters.</p>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 flex justify-center items-center space-x-2">
-                  <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1 || loading}>
-                    Previous
-                  </Button>
-                  <span>
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages || loading}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-            {view === 'kanban' && (
-              <div className="p-6">
-                {total > orders.length && (
-                  <p className="mb-4 text-sm text-gray-500">
-                    Showing the first {orders.length} of {total} orders. Use search or filters to narrow the board.
-                  </p>
-                )}
-                <KanbanBoard orders={orders} onOrderSelect={setSelectedOrder} onOrdersChanged={reload} />
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+
+      {orders.length === 0 && !loading ? (
+        <EmptyState
+          icon={ClipboardList}
+          title="No orders match"
+          description="Nothing matches the current search and filters. Delivered items are hidden unless you filter for them."
+        />
+      ) : view === 'list' ? (
+        <div className={cn("space-y-4 transition-opacity", loading && "opacity-60")}>
+          <OrderTable orders={orders} onOrderSelect={setSelectedOrder} onOrdersChanged={reload} />
+          <PaginationBar
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            disabled={loading}
+            summary={`${total} order item${total === 1 ? '' : 's'}`}
+          />
+        </div>
+      ) : (
+        <div className={cn("transition-opacity", loading && "opacity-60")}>
+          {total > orders.length && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Showing the first {orders.length} of {total} order items. Use search or filters to narrow the board.
+            </p>
+          )}
+          <KanbanBoard orders={orders} onOrderSelect={setSelectedOrder} onOrdersChanged={reload} />
+        </div>
+      )}
+
       <AnimatePresence>
         {selectedOrder && (
           <OrderModal
@@ -159,7 +151,7 @@ const ViewOrdersClient: React.FC<ViewOrdersClientProps> = ({ initialOrders, tota
           />
         )}
       </AnimatePresence>
-    </div>
+    </PageContainer>
   );
 };
 

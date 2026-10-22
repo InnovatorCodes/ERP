@@ -21,14 +21,14 @@ const Drawer = ({
     {open && (
       <div className="fixed inset-0 z-50">
         <motion.div
-          className="absolute inset-0 bg-black/40"
+          className="absolute inset-0 bg-black/50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         />
         <motion.aside
-          className="absolute right-0 top-0 h-full bg-white shadow-2xl max-w-full"
+          className="absolute right-0 top-0 h-full bg-card shadow-2xl max-w-full"
           style={{ width }}
           initial={{ x: width }}
           animate={{ x: 0 }}
@@ -57,12 +57,12 @@ export default function OrderDetailsDrawer({
       <div className="h-full flex flex-col">
         <div className="border-b p-5 flex items-center justify-between">
           <div>
-            <div className="text-xs text-gray-500">Order item</div>
+            <div className="text-xs text-muted-foreground">Order item</div>
             <div className="text-xl font-semibold">
               {order.id} • {order.customerName}
             </div>
           </div>
-          <button onClick={onClose} className="text-sm px-3 py-1 rounded border">
+          <button onClick={onClose} className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted">
             Close
           </button>
         </div>
@@ -70,23 +70,23 @@ export default function OrderDetailsDrawer({
         <div className="p-5 overflow-y-auto space-y-6">
           {/* Summary */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-xs text-gray-500">Order Date</div>
+            <div className="bg-muted rounded-lg p-4">
+              <div className="text-xs text-muted-foreground">Order Date</div>
               <div className="font-medium">{order.orderDate}</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-xs text-gray-500">Due Date</div>
+            <div className="bg-muted rounded-lg p-4">
+              <div className="text-xs text-muted-foreground">Due Date</div>
               <div className="font-medium">{order.dueDate}</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-xs text-gray-500">Delivery Date</div>
+            <div className="bg-muted rounded-lg p-4">
+              <div className="text-xs text-muted-foreground">Delivery Date</div>
               <div className="font-medium">{order.deliveryDate ?? 'Not Delivered'}</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-xs text-gray-500">Order Status</div>
+            <div className="bg-muted rounded-lg p-4">
+              <div className="text-xs text-muted-foreground">Order Status</div>
               <div
                 className={`inline-flex px-2 py-0.5 rounded-full text-xs ${
-                  order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  order.status === 'Delivered' ? 'bg-success-soft text-success' : 'bg-muted text-foreground'
                 }`}
               >
                 {order.status}
@@ -97,7 +97,7 @@ export default function OrderDetailsDrawer({
           {/* Address */}
           <div className="border rounded-lg p-4">
             <div className="text-sm font-medium mb-1">Delivery Address</div>
-            <div className="text-sm text-gray-600">{order.shippingAddress || 'Not recorded'}</div>
+            <div className="text-sm text-muted-foreground">{order.shippingAddress || 'Not recorded'}</div>
           </div>
 
           {/* Items */}
@@ -108,9 +108,9 @@ export default function OrderDetailsDrawer({
                 <div key={idx} className="p-3 flex items-center justify-between text-sm">
                   <div>
                     <div className="font-medium">{it.name}</div>
-                    <div className="text-xs text-gray-500">{it.sku}</div>
+                    <div className="text-xs text-muted-foreground">{it.sku}</div>
                   </div>
-                  <div className="text-gray-600">Qty {it.quantity}</div>
+                  <div className="text-muted-foreground">Qty {it.quantity}</div>
                 </div>
               ))}
             </div>

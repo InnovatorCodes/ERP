@@ -1,25 +1,48 @@
 "use client";
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Columns3, List, SlidersHorizontal } from 'lucide-react';
 import { ExportButton } from '../export-button';
-import { icons } from './icons';
 import { STAGE_CONFIG, PRIORITY_CONFIG } from './data';
 import { View, Stage, Priority } from './types';
+import { PageHeader } from '@/components/ui/page-header';
+import { SearchInput } from '@/components/ui/search-input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+type Filters = {
+  stage: Partial<Record<Stage, boolean>>;
+  priority: Partial<Record<Priority, boolean>>;
+  overdue: { true?: boolean };
+};
 
 interface HeaderProps {
   view: View;
   setView: (view: View) => void;
   search: string;
   setSearch: (search: string) => void;
-  activeFilters: { stage: Partial<Record<Stage, boolean>>; priority: Partial<Record<Priority, boolean>>; overdue: { true?: boolean } };
-  setActiveFilters: React.Dispatch<React.SetStateAction<{
-    stage: Partial<Record<Stage, boolean>>;
-    priority: Partial<Record<Priority, boolean>>;
-    overdue: { true?: boolean };
-  }>>;
+  activeFilters: Filters;
+  setActiveFilters: React.Dispatch<React.SetStateAction<Filters>>;
   sortConfig: { key: string; direction: string };
   setSortConfig: (config: { key: string; direction: string }) => void;
 }
+
+const SORT_OPTIONS = [
+  { key: 'priority', label: 'Priority' },
+  { key: 'dueDate', label: 'Due date' },
+  { key: 'id', label: 'Order ID' },
+];
+
+const CheckboxRow = ({ id, label, checked, onChange, dot }: { id: string; label: string; checked: boolean; onChange: () => void; dot?: string }) => (
+  <label htmlFor={id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted">
+    <Checkbox id={id} checked={checked} onCheckedChange={onChange} />
+    {dot && <span className="size-2 rounded-full" style={{ backgroundColor: dot }} />}
+    {label}
+  </label>
+);
 
 const Header: React.FC<HeaderProps> = ({
   view,
@@ -31,186 +54,144 @@ const Header: React.FC<HeaderProps> = ({
   sortConfig,
   setSortConfig,
 }) => {
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSort, setShowSort] = useState(false);
-  const isFilterActive = Object.values(activeFilters).some(f => Object.keys(f).length > 0);
+  const activeFilterCount =
+    Object.keys(activeFilters.stage).length + Object.keys(activeFilters.priority).length + (activeFilters.overdue.true ? 1 : 0);
 
   const toggleFilter = (filter: 'stage' | 'priority' | 'overdue', value: string) => {
     setActiveFilters(prev => {
-      const newFilters = { ...prev };
-      if (filter === 'stage') {
-        const key = value as Stage;
-        const newStageFilters = { ...newFilters.stage };
-        if (newStageFilters[key]) {
-          delete newStageFilters[key];
-        } else {
-          newStageFilters[key] = true;
-        }
-        return { ...newFilters, stage: newStageFilters };
-      }
-      if (filter === 'priority') {
-        const key = value as unknown as Priority;
-        const newPriorityFilters = { ...newFilters.priority };
-        if (newPriorityFilters[key]) {
-          delete newPriorityFilters[key];
-        } else {
-          newPriorityFilters[key] = true;
-        }
-        return { ...newFilters, priority: newPriorityFilters };
-      }
       if (filter === 'overdue') {
-        return { ...newFilters, overdue: { true: !newFilters.overdue.true } };
+        return { ...prev, overdue: prev.overdue.true ? {} : { true: true } };
       }
-      return newFilters;
+      const group = { ...prev[filter] } as Record<string, boolean>;
+      if (group[value]) delete group[value];
+      else group[value] = true;
+      return { ...prev, [filter]: group };
     });
   };
 
   const clearFilters = () => setActiveFilters({ stage: {}, priority: {}, overdue: {} });
 
   return (
-    <header className="bg-white/80 backdrop-blur-lg sticky top-0 z-40 p-4 border-b border-gray-200/50">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-black">Sofa Manufacturing ERP</h1>
-        <div className="relative">
-          <icons.search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search orders..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-64 bg-gray-100 text-black placeholder-gray-500 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-          />
-        </div>
-      </div>
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex items-center gap-4 bg-gray-100/50 p-1 rounded-lg">
-          {(['list', 'kanban'] as View[]).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`relative px-4 py-2 text-sm font-semibold rounded-md transition-colors ${view === v ? 'text-white' : 'text-gray-600 hover:text-black'}`}
-            >
-              {view === v && <motion.div layoutId="active-tab" className="absolute inset-0 bg-red-600 rounded-md z-0"></motion.div>}
-              <span className="relative z-10 flex items-center gap-2">
-                {React.createElement(icons[v])} {v === 'list' ? 'Orders List' : 'Kanban Board'}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-800 hover:bg-gray-200">
-                <icons.filter /> Filters
-                {isFilterActive && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
-              </button>
-              <AnimatePresence>
-                {showFilters && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50"
-                  >
-                    <h4 className="font-semibold mb-2 text-black">Stages</h4>
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {Object.entries(STAGE_CONFIG).map(([key, { label }]) => (
-                        <label key={key} className="flex items-center gap-2 text-sm cursor-pointer text-black">
-                          <input
-                            type="checkbox"
-                            checked={!!activeFilters.stage[key as Stage]}
-                            onChange={() => toggleFilter('stage', key)}
-                            className="h-4 w-4 rounded bg-gray-200 border-gray-300 text-red-500 focus:ring-red-500"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                    <h4 className="font-semibold mb-2 text-black">Priority</h4>
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {Object.entries(PRIORITY_CONFIG).map(([key, { label }]) => (
-                        <label key={key} className="flex items-center gap-2 text-sm cursor-pointer text-black">
-                          <input
-                            type="checkbox"
-                            checked={!!activeFilters.priority[key as unknown as Priority]}
-                            onChange={() => toggleFilter('priority', key)}
-                            className="h-4 w-4 rounded bg-gray-200 border-gray-300 text-red-500 focus:ring-red-500"
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer text-black">
-                      <input
-                        type="checkbox"
-                        checked={!!activeFilters.overdue.true}
-                        onChange={() => toggleFilter('overdue', 'true')}
-                        className="h-4 w-4 rounded bg-gray-200 border-gray-300 text-red-500 focus:ring-red-500"
-                      />
-                      Overdue Only
-                    </label>
-                    {isFilterActive && (
-                      <button onClick={clearFilters} className="w-full mt-4 text-sm text-center text-red-500 hover:text-red-600">
-                        Clear Filters
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="relative">
-              <button onClick={() => setShowSort(!showSort)} className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-800 hover:bg-gray-200">
-                <icons.sort /> Sort
-              </button>
-              <AnimatePresence>
-                {showSort && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl p-2 z-50"
-                  >
-                    {['priority', 'dueDate', 'id'].map(key => (
-                      <button
+    <div className="mb-6">
+      <PageHeader title="Production" description="Track every order item through the workshop.">
+        <ExportButton
+          source="orders"
+          params={{
+            q: search,
+            filters: JSON.stringify(activeFilters),
+            sortKey: sortConfig.key,
+            sortDir: sortConfig.direction,
+          }}
+          columns={[
+            { key: 'priority', label: 'Priority' },
+            { key: 'order_id', label: 'Order ID' },
+            { key: 'product_name', label: 'Product' },
+            { key: 'product_type', label: 'Product Type' },
+            { key: 'customer_name', label: 'Customer' },
+            { key: 'due_date', label: 'Due Date' },
+            { key: 'stage_name', label: 'Stage' },
+          ]}
+        />
+      </PageHeader>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <SegmentedControl
+          aria-label="Layout"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'list', label: 'List', icon: List },
+            { value: 'kanban', label: 'Board', icon: Columns3 },
+          ]}
+        />
+        <SearchInput
+          placeholder="Search by order ID, customer or product..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1"
+        />
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-card">
+                <SlidersHorizontal /> Filters
+                {activeFilterCount > 0 && <Badge className="px-1.5">{activeFilterCount}</Badge>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <div className="space-y-4">
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stage</p>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    {Object.entries(STAGE_CONFIG).map(([key, { label, color }]) => (
+                      <CheckboxRow
                         key={key}
-                        onClick={() => {
-                          setSortConfig({ key, direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc' });
-                          setShowSort(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100 flex justify-between items-center text-black"
-                      >
-                        <span>{key === 'dueDate' ? 'Due Date' : key === 'id' ? 'Order ID' : 'Priority'}</span>
-                        {sortConfig.key === key && <span className="text-red-500">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}
-                      </button>
+                        id={`filter-stage-${key}`}
+                        label={label}
+                        dot={color}
+                        checked={!!activeFilters.stage[key as Stage]}
+                        onChange={() => toggleFilter('stage', key)}
+                      />
                     ))}
-                  </motion.div>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Priority</p>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    {(Object.keys(PRIORITY_CONFIG) as unknown as Priority[]).map((key) => (
+                      <CheckboxRow
+                        key={key}
+                        id={`filter-priority-${key}`}
+                        label={PRIORITY_CONFIG[key].label}
+                        checked={!!activeFilters.priority[key]}
+                        onChange={() => toggleFilter('priority', String(key))}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t pt-3">
+                  <CheckboxRow
+                    id="filter-overdue"
+                    label="Overdue only"
+                    checked={!!activeFilters.overdue.true}
+                    onChange={() => toggleFilter('overdue', 'true')}
+                  />
+                </div>
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
                 )}
-              </AnimatePresence>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportButton
-              source="orders"
-              params={{
-                q: search,
-                filters: JSON.stringify(activeFilters),
-                sortKey: sortConfig.key,
-                sortDir: sortConfig.direction,
-              }}
-              columns={[
-                { key: 'priority', label: 'Priority' },
-                { key: 'order_id', label: 'Order ID' },
-                { key: 'product_name', label: 'Product' },
-                { key: 'product_type', label: 'Product Type' },
-                { key: 'customer_name', label: 'Customer' },
-                { key: 'due_date', label: 'Due Date' },
-                { key: 'stage_name', label: 'Stage' },
-              ]}
-            />
-          </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Select
+            value={sortConfig.key}
+            onValueChange={(key) => setSortConfig({ key, direction: sortConfig.direction })}
+          >
+            <SelectTrigger className="w-36 bg-card" aria-label="Sort by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-card"
+            onClick={() => setSortConfig({ key: sortConfig.key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
+            aria-label={sortConfig.direction === 'asc' ? 'Sorted ascending; switch to descending' : 'Sorted descending; switch to ascending'}
+            title={sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            {sortConfig.direction === 'asc' ? <ArrowUpNarrowWide /> : <ArrowDownWideNarrow />}
+          </Button>
         </div>
       </div>
-    </header>
+    </div>
   );
 };
 

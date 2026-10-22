@@ -1,18 +1,21 @@
 "use client";
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, CalendarClock, ChevronDown, ChevronUp, Loader2, User } from "lucide-react";
+import { Node } from "@xyflow/react";
 import { Order, Priority, CheckItem } from "./types";
 import { Product } from "@/types/products";
 import { PRIORITY_CONFIG } from "./data";
-import { icons } from "./icons";
+import { StageBadges } from "./badges";
 import getProductDetails from "@/actions/get-product-details";
 import ProductDetails from "./ProductDetails";
 import Diagram from "./production-flow";
 import { getChecklistForStage } from "@/actions/get-checklist-for-stage";
 import { Checklist } from "./Checklist";
 import { Button } from "../ui/button";
-import { Node } from "@xyflow/react";
-import { formatDisplayDate, isOverdue } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { SegmentedControl } from "../ui/segmented-control";
+import { cn, formatDisplayDate, isOverdue } from "@/lib/utils";
 
 type NodeData = {
   label: string;
@@ -25,281 +28,188 @@ interface OrderModalProps {
   onPriorityChange: (orderId: string, priority: Priority) => void;
 }
 
+type View = 'details' | 'flow' | 'checklist';
+
 const OrderModal: React.FC<OrderModalProps> = ({
   order,
   onClose,
   onPriorityChange,
 }) => {
   const [productDetails, setProductDetails] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false);
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
-  const [showProductDetails, setShowProductDetails] = useState(false); // New state to control visibility
-  const [view, setView] = useState<'details' | 'flow' | 'checklist'>('details');
+  const [showProductDetails, setShowProductDetails] = useState(false);
+  const [view, setView] = useState<View>('details');
   const [checklistData, setChecklistData] = useState<CheckItem[]>([]);
-  const [selectedStage, setSelectedStage] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [selectedStage, setSelectedStage] = useState<{ id: string; name: string } | null>(null);
+
+  const overdue = order.stage !== "delivered" && isOverdue(order.dueDate);
 
   const handleNodeClick = async (node: Node<NodeData>) => {
-    setIsLoading(true);
+    setIsLoadingChecklist(true);
     try {
-      const checklist = await getChecklistForStage(
-        Number(order.id),
-        parseInt(node.id, 10)
-      );
+      const checklist = await getChecklistForStage(Number(order.id), parseInt(node.id, 10));
       setChecklistData(checklist);
       setSelectedStage({ id: node.id, name: node.data.label });
       setView('checklist');
     } catch (error) {
       console.error('Failed to fetch checklist:', error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingChecklist(false);
     }
   };
 
+  const toggleProductDetails = async () => {
+    if (showProductDetails) {
+      setShowProductDetails(false);
+      return;
+    }
+    setIsLoadingProduct(true);
+    const details = await getProductDetails(order.productId, order.productType);
+    if (details.errors) {
+      const errorMessage = (details.errors as { database?: string[] }).database?.[0] ||
+        Object.values(details.errors).flat()[0] ||
+        'Failed to fetch product details.';
+      setProductError(errorMessage);
+      setProductDetails(null);
+      setShowProductDetails(false);
+    } else {
+      setProductDetails(details.data);
+      setProductError(null);
+      setShowProductDetails(true);
+    }
+    setIsLoadingProduct(false);
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-      suppressHydrationWarning
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className={`bg-white rounded-2xl shadow-2xl w-full ${view === 'checklist' ? 'max-w-6xl' : 'max-w-4xl'} text-black border border-gray-200 flex flex-col max-h-[90vh] transition-all duration-300`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {view !== 'checklist' && (
-          <div className="p-6 border-b border-gray-200 flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold text-black">
-                {order.id} - <span className="text-red-600">{order.product}</span>
-              </h2>
-              <p className="text-sm text-gray-600">{order.customer}</p>
-            </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-black">
-              <icons.close />
-            </button>
-          </div>
-        )}
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className={cn("flex max-h-[90vh] flex-col gap-0 p-0", view === 'details' ? "sm:max-w-3xl" : "sm:max-w-5xl")}>
+        <DialogHeader className="space-y-1 border-b p-6 pr-12 text-left">
+          <DialogTitle className="text-xl">
+            #{order.id} · {order.product}
+          </DialogTitle>
+          <DialogDescription className="flex items-center gap-1.5">
+            <User className="size-3.5" /> {order.customer}
+          </DialogDescription>
+          {view !== 'checklist' && (
+            <SegmentedControl
+              aria-label="Order view"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'details', label: 'Details' },
+                { value: 'flow', label: 'Production flow' },
+              ]}
+              className="mt-3 w-full sm:w-80"
+            />
+          )}
+        </DialogHeader>
 
-        <div className="p-6 flex-grow overflow-y-auto">
-          <AnimatePresence mode="wait">
-            {view === 'flow' && (
-              <motion.div
-                key="diagram"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                className="h-[60vh]"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-red-600">
-                    Production Flow
-                  </h3>
-                  <button
-                    onClick={() => setView('details')}
-                    className="text-sm text-gray-600 hover:text-red-600 flex items-center gap-1 ml-auto"
-                  >
-                    &larr; Back to Details
-                  </button>
+        <div className="flex-1 overflow-y-auto p-6">
+          {view === 'details' && (
+            <div className="space-y-6">
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="rounded-lg border p-4">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Due date</dt>
+                  <dd className={cn("mt-1 flex items-center gap-1.5 font-medium", overdue ? "text-destructive" : "text-foreground")}>
+                    <CalendarClock className="size-4" />
+                    {formatDisplayDate(order.dueDate)}
+                    {overdue && <span className="text-xs font-normal">(overdue)</span>}
+                  </dd>
                 </div>
-                <div className="w-full h-full bg-white relative overflow-hidden">
-                  <Diagram
-                    orderItemId={Number(order.id)}
-                    onNodeClick={handleNodeClick}
-                  />
+                <div className="rounded-lg border p-4">
+                  <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Priority</dt>
+                  <dd>
+                    <Select
+                      value={String(order.priority)}
+                      onValueChange={(value) => onPriorityChange(order.id, Number(value) as Priority)}
+                    >
+                      <SelectTrigger className="h-8 w-full" aria-label="Priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(PRIORITY_CONFIG) as unknown as Priority[])
+                          .sort((a, b) => Number(b) - Number(a))
+                          .map((p) => (
+                            <SelectItem key={p} value={String(p)}>{PRIORITY_CONFIG[p].label}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </dd>
                 </div>
-              </motion.div>
-            )}
+                <div className="rounded-lg border p-4">
+                  <dt className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">Stage</dt>
+                  <dd><StageBadges stages={order.stage} /></dd>
+                </div>
+              </dl>
 
-            {view === 'checklist' && selectedStage && (
-              <motion.div
-                key="checklist"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col h-full"
-              >
-                <div className="p-6 border-b border-gray-200 bg-gray-50 rounded-2xl">
-                  <div className="flex justify-end">
-                    <button onClick={onClose} className="text-gray-500 hover:text-black">
-                      <icons.close />
-                    </button>
+              <section className="rounded-lg border">
+                <button
+                  type="button"
+                  onClick={toggleProductDetails}
+                  disabled={isLoadingProduct}
+                  aria-expanded={showProductDetails}
+                  className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  <span>
+                    <span className="block font-medium text-foreground">Product specification</span>
+                    <span className="block text-sm capitalize text-muted-foreground">{order.productType} · {order.product}</span>
+                  </span>
+                  {isLoadingProduct
+                    ? <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    : showProductDetails ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+                </button>
+                {showProductDetails && productDetails && (
+                  <div className="border-t p-4">
+                    <ProductDetails
+                      details={productDetails}
+                      productType={order.productType}
+                      orderItemId={Number(order.id)}
+                      onProductUpdate={(updatedProduct) => setProductDetails(updatedProduct)}
+                    />
                   </div>
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-black">
-                        {order.id} - <span className="text-red-600">{order.product}</span>
-                      </h2>
-                      <p className="text-sm text-gray-600">{order.customer}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button onClick={() => setView('flow')} variant="outline">
-                        &larr; Back to Flow
-                      </Button>
-                      <Button onClick={() => setView('details')} variant="outline">
-                        &larr; Back to Details
-                      </Button>
-                    </div>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-800">Checklist for {selectedStage.name}</h3>
-                </div>
-                <div className="p-6 flex-grow overflow-y-auto">
-                  <Checklist
-                    checklist={checklistData}
-                    orderItemId={Number(order.id)}
-                    stageName={selectedStage.name}
-                    stageId={parseInt(selectedStage.id, 10)}
-                    onProceed={() => setView('flow')}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {view === 'details' && (
-              <motion.div
-                key="details"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2 space-y-4 text-sm">
-                    <h3 className="text-lg font-semibold text-black mb-2">
-                      Order Details
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 bg-gray-100/50 p-4 rounded-lg">
-                      <div>
-                        <span className="font-semibold text-gray-600 block">
-                          Customer
-                        </span>
-                        <p>{order.customer}</p>
-                      </div>
-                      <div>
-                        <button
-                          onClick={async () => {
-                            if (showProductDetails) {
-                              setShowProductDetails(false);
-                            } else {
-                              setIsLoading(true);
-                              const details = await getProductDetails(
-                                order.productId,
-                                order.productType
-                              );
-                              if (details.errors) {
-                                const errorMessage = (details.errors as { database?: string[] }).database?.[0] ||
-                                  Object.values(details.errors).flat()[0] ||
-                                  'Failed to fetch product details.';
-                                setProductError(errorMessage);
-                                setProductDetails(null);
-                                setShowProductDetails(false);
-                              } else {
-                                setProductDetails(details.data);
-                                setProductError(null);
-                                setShowProductDetails(true);
-                              }
-                              setIsLoading(false);
-                            }
-                          }}
-                          className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-                          disabled={isLoading}
-                        >
-                          {isLoading
-                            ? "Loading..."
-                            : showProductDetails
-                            ? "Collapse Details"
-                            : "View Details"}
-                        </button>
-                      </div>
-                      {showProductDetails && productDetails && (
-                        <div className="col-span-2 mt-4">
-                          <ProductDetails
-                            details={productDetails}
-                            productType={order.productType}
-                            orderItemId={Number(order.id)}
-                            onProductUpdate={(updatedProduct) => setProductDetails(updatedProduct)}
-                          />
-                        </div>
-                      )}
-                      {productError && (
-                        <div className="col-span-2 mt-4 text-red-500">
-                              {productError}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-black mb-2">
-                          Status & Priority
-                        </h3>
-                        <div className="bg-gray-100/50 p-4 rounded-lg space-y-4">
-                          <div>
-                            <span className="font-semibold text-gray-600 block">
-                              Due Date
-                            </span>
-                            <p
-                              className={
-                                order.stage !== "delivered" && isOverdue(order.dueDate)
-                                  ? "text-red-600"
-                                  : ""
-                              }
-                            >
-                              {formatDisplayDate(order.dueDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <label className="font-semibold text-gray-600 block mb-1">
-                              Priority
-                            </label>
-                            <select
-                              value={order.priority}
-                              onChange={(e) =>
-                                onPriorityChange(
-                                  order.id,
-                                  Number(e.target.value) as Priority
-                                )
-                              }
-                              className="w-full bg-gray-200 border border-gray-300 rounded-md p-2 focus:ring-red-500 focus:border-red-500"
-                            >
-                              {(Object.keys(PRIORITY_CONFIG) as unknown as Priority[]).map((p) => (
-                                <option key={p} value={p}>
-                                  {PRIORITY_CONFIG[p].label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
                 )}
-              </AnimatePresence>
+                {productError && (
+                  <p className="border-t p-4 text-sm text-destructive">{productError}</p>
+                )}
+              </section>
             </div>
+          )}
 
-            <div className="p-6 border-t border-gray-200 bg-gray-50/30 rounded-b-2xl">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
-                  {/* Stage progress bar remains the same */}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setView('flow')}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 bg-red-100 hover:bg-red-200 transition-colors"
-                  >
-                    View Flow
-                  </button>
-                </div>
+          {view === 'flow' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Click an active stage to open its quality checklist.
+                {isLoadingChecklist && <Loader2 className="ml-2 inline size-4 animate-spin" />}
+              </p>
+              <div className="relative h-[55vh] overflow-hidden rounded-lg border">
+                <Diagram orderItemId={Number(order.id)} onNodeClick={handleNodeClick} />
               </div>
             </div>
-          </motion.div>
-        </motion.div>
-      );
-    };
+          )}
+
+          {view === 'checklist' && selectedStage && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-foreground">Checklist · {selectedStage.name}</h3>
+                <Button variant="outline" size="sm" onClick={() => setView('flow')}>
+                  <ArrowLeft /> Back to flow
+                </Button>
+              </div>
+              <Checklist
+                checklist={checklistData}
+                orderItemId={Number(order.id)}
+                stageName={selectedStage.name}
+                stageId={parseInt(selectedStage.id, 10)}
+                onProceed={() => setView('flow')}
+              />
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default OrderModal;

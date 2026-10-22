@@ -57,12 +57,12 @@ export default function EditProductForm({ product: initialProduct, productType, 
       <input type="hidden" name="product_type" value={productType} />
 
       <div className="space-y-4 border-t pt-6">
-        <h3 className="text-lg font-semibold col-span-full">General Information</h3>
+        <h3 className="font-semibold text-foreground">General information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InputField name="model_name" label="Model Name" value={product.model_name || ''} onChange={handleInputChange} placeholder="e.g., Elegance Sofa" />
+          <InputField name="model_name" label="Model Name" value={product.model_name || ''} onChange={handleInputChange} placeholder="e.g., Elegance Sofa" required />
           <div>
-            <Label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</Label>
-            <Textarea id="description" name="description" value={product.description || ''} onChange={handleInputChange} placeholder="A brief description of the product" className="h-24" />
+            <Label htmlFor="description" className="mb-1.5 block">Description</Label>
+            <Textarea id="description" name="description" value={product.description || ''} onChange={handleInputChange} placeholder="A brief description of the product" className="h-24 bg-card" />
           </div>
           <ImageUploadDisplayField
             label="Reference Image"
@@ -104,7 +104,7 @@ export default function EditProductForm({ product: initialProduct, productType, 
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-6 border-t">
-        <Button type="button" variant="ghost" onClick={onFormSubmit} disabled={isPending}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onFormSubmit} disabled={isPending}>Cancel</Button>
         <Button type="submit" disabled={isPending}>
           {isPending ? 'Saving...' : 'Save Changes'}
         </Button>

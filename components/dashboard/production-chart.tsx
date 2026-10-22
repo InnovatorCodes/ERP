@@ -1,10 +1,11 @@
 "use client";
 
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { format } from 'date-fns';
-
-// --- Type Definitions ---
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart3 } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/utils';
+import { THEME_COLORS } from '@/lib/theme-colors';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export interface ProductionChartData {
   date: string;
@@ -15,31 +16,34 @@ interface ProductionChartProps {
   data: ProductionChartData[];
 }
 
-// Production Chart Component
 const ProductionChart: React.FC<ProductionChartProps> = ({ data }) => {
-  const formattedData = data.map(item => ({
-    day: format(new Date(item.date), 'MMM dd'),
-    produced: item.count,
+  const chartData = data.map(item => ({
+    day: formatDisplayDate(item.date).replace(/ \d{4}$/, ''),
+    orders: item.count,
   }));
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Orders Started (Last 30 Days)</h3>
-        <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-                <BarChart data={formattedData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="day" tick={{ fill: '#6B7280', fontSize: 12 }} />
-                    <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} />
-                    <Tooltip
-                        cursor={{ fill: 'rgba(239, 68, 68, 0.1)' }}
-                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '0.5rem' }}
-                    />
-                    <Legend iconType="circle" iconSize={10} />
-                    <Bar dataKey="produced" fill="#EF4444" name="Orders Started" barSize={30} radius={[4, 4, 0, 0]} />
-                </BarChart>
-            </ResponsiveContainer>
+    <div className="h-full rounded-xl border bg-card p-5 shadow-sm">
+      <h2 className="font-semibold text-foreground">Orders placed</h2>
+      <p className="mb-4 text-sm text-muted-foreground">Order items placed per day, last 30 days</p>
+      {chartData.length === 0 ? (
+        <EmptyState icon={BarChart3} title="No orders in the last 30 days" className="border-0 py-16" />
+      ) : (
+        <div className="h-[280px] w-full">
+          <ResponsiveContainer>
+            <BarChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={THEME_COLORS.border} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: THEME_COLORS.mutedForeground, fontSize: 12 }} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: THEME_COLORS.mutedForeground, fontSize: 12 }} />
+              <Tooltip
+                cursor={{ fill: THEME_COLORS.primarySoft }}
+                contentStyle={{ backgroundColor: '#fff', border: `1px solid ${THEME_COLORS.border}`, borderRadius: '0.5rem', fontSize: 12 }}
+              />
+              <Bar dataKey="orders" fill={THEME_COLORS.chart1} name="Order items" maxBarSize={28} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
+      )}
     </div>
   );
 };
