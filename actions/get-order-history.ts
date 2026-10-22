@@ -1,6 +1,6 @@
 "use server";
 
-import { authorize, ROLES } from "@/lib/auth";
+import { authorize, ROLES, viewers } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/utils";
 import { OrderHistory } from "@/components/order-history/types";
 
@@ -22,7 +22,7 @@ export async function getOrderHistory(
   page: number,
   pageSize: number
 ): Promise<{ orders: OrderHistory[]; totalCount: number }> {
-  const auth = await authorize(ROLES.MANAGEMENT);
+  const auth = await authorize(viewers(ROLES.MANAGEMENT));
   if (!auth.ok) return { orders: [], totalCount: 0 };
   const offset = (page - 1) * pageSize;
 

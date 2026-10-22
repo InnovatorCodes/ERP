@@ -4,6 +4,7 @@ import { UserPlus } from 'lucide-react';
 import AddEmployeeForm from '@/components/add-employee-form';
 import { EmployeesList } from '@/components/employees-list';
 import RoleGuard from '@/components/role-guard';
+import { DEMO_ROLE } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -20,7 +21,7 @@ export default function EmployeesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [listVersion, setListVersion] = useState(0);
   return (
-    <RoleGuard allowedRoles={['admin']}>
+    <RoleGuard allowedRoles={['admin', DEMO_ROLE]}>
       <PageContainer>
         <PageHeader title="Employees" description="Who can sign in, and what each person can access.">
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

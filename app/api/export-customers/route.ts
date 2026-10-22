@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorize, ROLES } from '@/lib/auth';
+import { authorize, ROLES, viewers } from '@/lib/auth';
 import { collectRows, exportFailed, exportResponse, selectColumns, type ExportColumn } from '@/lib/export';
 import { formatDisplayDate } from '@/lib/utils';
 
@@ -15,7 +15,7 @@ const COLUMNS: ExportColumn[] = [
 ];
 
 export async function GET(request: NextRequest) {
-  const auth = await authorize(ROLES.SALES);
+  const auth = await authorize(viewers(ROLES.SALES));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

@@ -22,7 +22,9 @@ create extension if not exists pg_trgm with schema extensions;
 -- -----------------------------------------------------------------------------
 -- Enums
 -- -----------------------------------------------------------------------------
-create type public.user_role as enum ('admin', 'manager', 'production manager', 'sales coordinator');
+-- 'demo' is the public read-only showcase account: it can read everything and
+-- write nothing, because no write policy, storage rule or write function lists it.
+create type public.user_role as enum ('admin', 'manager', 'production manager', 'sales coordinator', 'demo');
 create type public.customer_type as enum ('b2b', 'b2c', 'architecture', 'interior design');
 create type public.stage_status as enum ('pending', 'active', 'completed');
 create type public.check_status as enum ('pending', 'passed', 'failed', 'skipped');
@@ -371,6 +373,26 @@ create trigger on_auth_user_email_changed
   after update of email on auth.users
   for each row execute function public.sync_profile_email();
 
+-- Visitors share the demo login: stop anyone changing its email, phone or password.
+create function public.protect_demo_account()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if exists (select 1 from public.profiles where id = old.id and role = 'demo')
+     and (new.email is distinct from old.email
+          or new.phone is distinct from old.phone
+          or new.encrypted_password is distinct from old.encrypted_password) then
+    raise exception 'The demo account cannot be changed.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_protect_demo
+  before update on auth.users
+  for each row execute function public.protect_demo_account();
+
 -- Never allow the system to end up with zero admins.
 create function public.protect_last_admin()
 returns trigger
@@ -407,6 +429,7 @@ alter table public.order_item_stage_status    enable row level security;
 alter table public.product_checklist_progress enable row level security;
 
 -- profiles: everyone sees their own row; admins see and edit everyone.
+-- (The demo account reads the Employees list through list_employees(), with emails masked.)
 create policy profiles_select on public.profiles for select to authenticated
   using (id = (select auth.uid()) or (select public.has_role('admin')));
 create policy profiles_update on public.profiles for update to authenticated
@@ -961,7 +984,7 @@ declare
   v_date_from     date := nullif(p_filters ->> 'date_from', '')::date;
   v_date_to       date := nullif(p_filters ->> 'date_to', '')::date;
 begin
-  perform public.assert_role('admin', 'manager');
+  perform public.assert_role('admin', 'manager', 'demo');
 
   return query
   select
@@ -1010,7 +1033,7 @@ declare
   v_today date := public.business_today();
   v_result jsonb;
 begin
-  perform public.assert_role('admin', 'manager');
+  perform public.assert_role('admin', 'manager', 'demo');
 
   select jsonb_build_object(
     'total_orders',           (select count(*) from public.order_items),
@@ -1081,6 +1104,28 @@ as $$
 $$;
 
 -- Column names are quoted so the JSON keys keep their camelCase (the app reads customer.dateAdded etc.).
+-- The Employees list. The demo account sees it too, but with everyone else's email
+-- masked; it has no direct read access to other profiles, so this is the only way in.
+create function public.list_employees()
+returns table (id uuid, email text, full_name text, role public.user_role)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  perform public.assert_role('admin', 'demo');
+
+  return query
+  select p.id,
+         case
+           when p.email is null or public.has_role('admin') or p.id = auth.uid() then p.email
+           else left(p.email, 1) || '•••@' || left(split_part(p.email, '@', 2), 1) || '•••'
+         end,
+         p.full_name,
+         p.role
+  from public.profiles p
+  order by p.full_name nulls last, p.email;
+end;
+$$;
+
 create function public.get_customer_details(p_customer_id integer)
 returns table (
   id            text,
@@ -1152,9 +1197,10 @@ grant execute on function public.search_and_paginate_order_history_v2(text, inte
 grant execute on function public.get_dashboard_stats()                                  to authenticated;
 grant execute on function public.get_order_item_stage_status_with_delivery_check(integer) to authenticated;
 grant execute on function public.get_customer_details(integer)                          to authenticated;
+grant execute on function public.list_employees()                                       to authenticated;
 grant execute on function public.search_customers(text, text, text)                     to authenticated;
--- init_order_item_stages, handle_new_user, sync_profile_email, protect_last_admin and
--- set_updated_at are internal and intentionally not granted.
+-- init_order_item_stages, handle_new_user, sync_profile_email, protect_demo_account,
+-- protect_last_admin and set_updated_at are internal and intentionally not granted.
 
 -- -----------------------------------------------------------------------------
 -- Storage: private bucket for product images and drawings
@@ -1212,4 +1258,8 @@ commit;
 --      select id, email, 'Your Name', 'admin' from auth.users where email = 'you@company.com';
 --
 --   Every later employee is created from the app's Employees page.
+--
+--   Optional: a public read-only demo account, see "AFTER RUNNING" in
+--   schemas/demo.sql (the schema changes there are already included here),
+--   and schemas/sample-data.sql for demo customers and orders.
 -- =============================================================================

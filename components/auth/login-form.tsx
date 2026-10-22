@@ -7,16 +7,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
+// Public read-only demo account. The button is only shown when both are set.
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD
+
 export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const supabase = createClient()
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const signIn = async (credentials: { email: string; password: string }) => {
     setIsSubmitting(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword(credentials)
 
     if (error) {
       toast.error(error.message)
@@ -28,6 +31,11 @@ export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
       // of staying on "Logging in...".
       window.location.assign("/")
     }
+  }
+
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    signIn({ email, password })
   }
 
   return (
@@ -101,9 +109,32 @@ export default function LoginForm({ errorMessage }: { errorMessage?: string }) {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Accounts are created by an admin.
-          </p>
+          {DEMO_EMAIL && DEMO_PASSWORD ? (
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                or
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                disabled={isSubmitting}
+                className="w-full"
+                onClick={() => signIn({ email: DEMO_EMAIL, password: DEMO_PASSWORD })}
+              >
+                Try the demo
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Explore every screen with sample data. The demo is read-only.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              Accounts are created by an admin.
+            </p>
+          )}
         </div>
       </div>
     </div>

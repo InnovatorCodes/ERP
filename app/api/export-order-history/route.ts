@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorize, ROLES } from '@/lib/auth';
+import { authorize, ROLES, viewers } from '@/lib/auth';
 import { collectRows, exportFailed, exportResponse, selectColumns, type ExportColumn } from '@/lib/export';
 import { formatDisplayDate } from '@/lib/utils';
 
@@ -31,7 +31,7 @@ const isDate = (value: string | null) => (value && /^\d{4}-\d{2}-\d{2}$/.test(va
 
 // Exports exactly what the Order History screen shows: same search, dates and sort.
 export async function GET(request: NextRequest) {
-  const auth = await authorize(ROLES.MANAGEMENT);
+  const auth = await authorize(viewers(ROLES.MANAGEMENT));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

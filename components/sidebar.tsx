@@ -5,7 +5,7 @@ import { LayoutDashboard, Users, Package, ShoppingCart, ClipboardList, History, 
 import Link from 'next/link';
 import { useUser } from '@/context/user-context';
 import Image from 'next/image';
-import { canAccess, isUserRole } from '@/lib/roles';
+import { canAccess, DEMO_ROLE, isUserRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -105,7 +105,9 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
             {!isCollapsed && (
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-sidebar-accent-foreground">{user.full_name ?? 'User'}</p>
-                <p className="truncate text-xs capitalize text-sidebar-muted">{user.role}</p>
+                <p className="truncate text-xs capitalize text-sidebar-muted">
+                  {role === DEMO_ROLE ? 'Read-only demo' : user.role}
+                </p>
               </div>
             )}
           </div>

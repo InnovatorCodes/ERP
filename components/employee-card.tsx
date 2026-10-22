@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateEmployeeRole } from "@/actions/update-employee-role";
+import { DEMO_ROLE } from "@/lib/roles";
 
 export const EMPLOYEE_ROLES = [
   { value: "admin", label: "Admin" },
@@ -43,7 +44,10 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
   const [role, setRole] = useState(employee.role);
   const [isUpdating, setIsUpdating] = useState(false);
   const displayName = employee.full_name || employee.email || "Unnamed employee";
-  const roleLabel = EMPLOYEE_ROLES.find((r) => r.value === savedRole)?.label ?? savedRole;
+  const isDemoAccount = savedRole === DEMO_ROLE;
+  const roleLabel = isDemoAccount
+    ? "Read-only demo"
+    : EMPLOYEE_ROLES.find((r) => r.value === savedRole)?.label ?? savedRole;
 
   const handleUpdateRole = async () => {
     setIsUpdating(true);
@@ -70,25 +74,31 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
           <p className="truncate font-medium text-foreground">{displayName}</p>
           {employee.email && <p className="truncate text-xs text-muted-foreground">{employee.email}</p>}
         </div>
-        <Badge variant={savedRole === "admin" ? "accent" : "secondary"}>{roleLabel}</Badge>
+        <Badge variant={savedRole === "admin" ? "accent" : isDemoAccount ? "info" : "secondary"}>{roleLabel}</Badge>
       </div>
-      <div className="flex items-center gap-2 border-t pt-4">
-        <Select value={role} onValueChange={setRole}>
-          <SelectTrigger className="flex-1" aria-label={`Role for ${displayName}`}>
-            <SelectValue placeholder="Select role" />
-          </SelectTrigger>
-          <SelectContent>
-            {EMPLOYEE_ROLES.map((r) => (
-              <SelectItem key={r.value} value={r.value}>
-                {r.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={handleUpdateRole} disabled={isUpdating || role === savedRole}>
-          {isUpdating ? "Saving…" : "Save role"}
-        </Button>
-      </div>
+      {isDemoAccount ? (
+        <p className="border-t pt-4 text-xs text-muted-foreground">
+          The public demo login. Its role and password are managed in the database.
+        </p>
+      ) : (
+        <div className="flex items-center gap-2 border-t pt-4">
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger className="flex-1" aria-label={`Role for ${displayName}`}>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              {EMPLOYEE_ROLES.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={handleUpdateRole} disabled={isUpdating || role === savedRole}>
+            {isUpdating ? "Saving…" : "Save role"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

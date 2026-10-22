@@ -1,10 +1,12 @@
 import { createClient } from '@/utils/supabase/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { ROLES, USER_ROLES, type UserRole } from '@/lib/roles';
+import { DEMO_ROLE, ROLES, USER_ROLES, viewers, type UserRole } from '@/lib/roles';
 
 // Who may call which server actions is defined in lib/roles.ts. The database
 // enforces the same rules, so these checks are a first line of defence.
-export { ROLES, USER_ROLES, type UserRole };
+export { ROLES, USER_ROLES, viewers, type UserRole };
+
+export const DEMO_READ_ONLY_MESSAGE = 'This is a read-only demo account, so changes are not saved.';
 
 type AuthResult =
   | { ok: true; supabase: SupabaseClient; user: User; role: UserRole }
@@ -29,7 +31,8 @@ export async function authorize(allowed: readonly UserRole[]): Promise<AuthResul
 
   const role = profile?.role as UserRole | undefined;
   if (!role || !allowed.includes(role)) {
-    return { ok: false, status: 403, message: 'You do not have permission to perform this action.' };
+    const message = role === DEMO_ROLE ? DEMO_READ_ONLY_MESSAGE : 'You do not have permission to perform this action.';
+    return { ok: false, status: 403, message };
   }
 
   return { ok: true, supabase, user, role };

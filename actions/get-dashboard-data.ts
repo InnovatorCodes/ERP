@@ -1,9 +1,9 @@
 "use server";
 
-import { authorize, ROLES } from "@/lib/auth";
+import { authorize, ROLES, viewers } from "@/lib/auth";
 
 export async function getDashboardData() {
-  const auth = await authorize(ROLES.MANAGEMENT);
+  const auth = await authorize(viewers(ROLES.MANAGEMENT));
   if (!auth.ok) return null;
 
   const { data, error } = await auth.supabase.rpc("get_dashboard_stats");

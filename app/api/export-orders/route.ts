@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorize, ROLES } from '@/lib/auth';
+import { authorize, ROLES, viewers } from '@/lib/auth';
 import { collectRows, exportFailed, exportResponse, selectColumns, type ExportColumn } from '@/lib/export';
 import { formatDisplayDate } from '@/lib/utils';
 import { PRIORITY_CONFIG, STAGE_CONFIG } from '@/components/view-orders/data';
@@ -48,7 +48,7 @@ function parseFilters(raw: string | null) {
 
 // Exports exactly what the View Orders screen shows: same search, filters and sort.
 export async function GET(request: NextRequest) {
-  const auth = await authorize(ROLES.PRODUCTION);
+  const auth = await authorize(viewers(ROLES.PRODUCTION));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

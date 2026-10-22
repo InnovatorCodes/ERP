@@ -1,20 +1,25 @@
 "use server";
 
-import { authorize, ROLES } from "@/lib/auth";
+import { authorize, ROLES, viewers, type UserRole } from "@/lib/auth";
 
-export async function getEmployees() {
-  const auth = await authorize(ROLES.ADMIN);
+type Employee = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: UserRole;
+};
+
+export async function getEmployees(): Promise<Employee[]> {
+  const auth = await authorize(viewers(ROLES.ADMIN));
   if (!auth.ok) return [];
 
-  const { data, error } = await auth.supabase
-    .from("profiles")
-    .select("id, email, full_name, role")
-    .order("full_name");
+  // The database masks other people's emails for the demo account.
+  const { data, error } = await auth.supabase.rpc("list_employees");
 
   if (error) {
     console.error("Error fetching employees:", error);
     return [];
   }
 
-  return data;
+  return (data ?? []) as Employee[];
 }

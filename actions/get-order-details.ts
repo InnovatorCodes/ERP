@@ -1,6 +1,6 @@
 "use server";
 
-import { authorize, ROLES } from "@/lib/auth";
+import { authorize, ROLES, viewers } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/utils";
 import { OrderDetails } from "@/components/order-history/types";
 
@@ -21,7 +21,7 @@ type OrderItemRow = {
 };
 
 export async function getOrderDetails(orderId: number): Promise<OrderDetails | null> {
-  const auth = await authorize(ROLES.MANAGEMENT);
+  const auth = await authorize(viewers(ROLES.MANAGEMENT));
   if (!auth.ok) return null;
 
   const { data, error } = await auth.supabase
