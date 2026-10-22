@@ -24,12 +24,15 @@ Every order item moves through six production stages, from carpentry to packing,
 
 <table>
   <tr>
+    <td width="50%"><img src="./screenshots/production.png" alt="Production" /><p align="center"><sub>Production</sub></p></td>
     <td width="50%"><img src="./screenshots/place-order.png" alt="Place order" /><p align="center"><sub>Place order</sub></p></td>
-    <td width="50%"><img src="./screenshots/products.png" alt="Products" /><p align="center"><sub>Products</sub></p></td>
   </tr>
   <tr>
+    <td width="50%"><img src="./screenshots/products.png" alt="Products" /><p align="center"><sub>Products</sub></p></td>
     <td width="50%"><img src="./screenshots/customers.png" alt="Customers" /><p align="center"><sub>Customers</sub></p></td>
-    <td width="50%"><img src="./screenshots/order-history.png" alt="Order history" /><p align="center"><sub>Order history</sub></p></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="./screenshots/order-history.png" alt="Order history" /><p align="center"><sub>Order history</sub></p></td>
   </tr>
 </table>
 
